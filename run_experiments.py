@@ -1249,7 +1249,7 @@ def ext_f_learned_weights():
             for t in range(1,steps+1):
                 z=_apply(x,K); h=_sig2d(z,alpha); gate=sigmoid_prime(h,alpha)
                 err=h-target2d
-                g=2.*_apply(err*gate,K[::-1,::-1],mode="wrap")
+                g=2.*_apply(err*gate,K[::-1,::-1])
                 m=b1*m+(1-b1)*g; v=b2*v+(1-b2)*g**2
                 x=np.clip(x-lr*(m/(1-b1**t))/(np.sqrt(v/(1-b2**t))+eps),0.,1.)
             z=_apply(x,K); h=_sig2d(z,alpha); gate=sigmoid_prime(h,alpha)
