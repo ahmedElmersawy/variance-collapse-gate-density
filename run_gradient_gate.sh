@@ -2,7 +2,7 @@
 #SBATCH --job-name=gradient-gate-collapse
 #SBATCH --account=davisjam
 #SBATCH --partition=a100-80gb
-#SBATCH --gres=gpu:0
+#SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
 #SBATCH --time=12:00:00
