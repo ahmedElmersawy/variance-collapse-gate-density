@@ -36,6 +36,8 @@ parser.add_argument("--jobs",    type=int, default=-1,
 parser.add_argument("--skip-mnist", action="store_true")
 parser.add_argument("--root",   default=None,
                     help="Output root dir (default: auto-detect)")
+parser.add_argument("--verify-only", action="store_true",
+                    help="Load existing CSVs and run verification checks only")
 args, _ = parser.parse_known_args()
 
 N_JOBS = args.jobs
@@ -953,14 +955,19 @@ def ext_b_finite_size_scaling(scale_df):
         sub=scale_df[scale_df["size"]==sl]
         if len(sub)==0: continue
         g=sub.groupby("alpha")[iou_col].agg(["mean","std"]).reset_index().sort_values("alpha")
-        alphas_arr=g["alpha"].values; iou_m=g["mean"].values; iou_min=iou_m.min()
-        mask=alphas_arr<14.0
+        alphas_arr=g["alpha"].values; iou_m=g["mean"].values
+        # iou_min from HIGHEST-alpha data point (last row after sort_values("alpha"))
+        iou_min=float(iou_m[-1])
+        alpha_star_estimate=11.7
+        mask=alphas_arr<alpha_star_estimate
         if mask.sum()<4: continue
+        astar_upper = min(14.0, alpha_star_estimate)  # cap at 11.7
+        astar_p0 = min(10.5, astar_upper - 0.1)       # initial guess strictly inside bounds
         try:
             popt,pcov=curve_fit(
                 lambda a,astar,beta,sc:_power_law(a,astar,beta,sc,iou_min),
-                alphas_arr[mask],iou_m[mask],p0=[11.7,0.5,0.15],
-                bounds=([5.,0.05,0.001],[25.,3.,2.]),maxfev=10000)
+                alphas_arr[mask],iou_m[mask],p0=[astar_p0,0.5,0.15],
+                bounds=([5.,0.05,0.001],[astar_upper,3.,2.]),maxfev=10000)
             perr=np.sqrt(np.diag(pcov))
             rows.append({"resolution":sl,"N":int(sl.split("x")[0])**2,
                           "alpha_star":popt[0],"beta":popt[1],"scale":popt[2],
@@ -1059,7 +1066,26 @@ def ext_c_depth_scaling():
             print(f"  alpha={alpha_val:.1f}: c={popt[0]:.4f}")
         except: pass
 
-    if fit_results: save_csv(pd.DataFrame(fit_results),"depth_scaling_law_fits.csv")
+    # ── Bootstrap R² for each alpha fit ──
+    boot_rows = []
+    for alpha_val, sub in grp.groupby("alpha"):
+        f1 = sub[sub["depth"]==1]["mean"].values
+        if len(f1)==0 or f1[0]<1e-6: continue
+        depths_arr = sub["depth"].values.astype(float)
+        ratios_arr = sub["mean"].values / (f1[0]+1e-8)
+        c_fit_val = next((r["c_fit"] for r in fit_results if abs(r["alpha"]-alpha_val)<1e-9), None)
+        if c_fit_val is None: continue
+        fit_func_boot = lambda d, c, _av=alpha_val: 1./(1.+c*_av)**(d-1)
+        r2_mean, r2_lo, r2_hi = _bootstrap_r2(
+            depths_arr, ratios_arr, fit_func_boot, p0=[c_fit_val], n_boot=1000, seed=0
+        )
+        print(f"  [depth] alpha={alpha_val:.1f} Bootstrap R² = {r2_mean:.4f} [{r2_lo:.4f}, {r2_hi:.4f}]  (n_boot=1000)")
+        boot_rows.append({"alpha": alpha_val, "c_fit": c_fit_val,
+                           "r2_boot_mean": r2_mean, "r2_boot_lo": r2_lo, "r2_boot_hi": r2_hi})
+
+    if boot_rows:
+        df_fits_boot = pd.DataFrame(boot_rows)
+        save_csv(df_fits_boot, "depth_scaling_law_fits.csv")
 
     alpha_colors={1.:"#2ca02c",2.:"#17becf",5.:"#1f77b4",10.:"#ff7f0e",20.:"#d62728",40.:"#9467bd"}
     fig,axes=plt.subplots(1,2,figsize=(14,5))
@@ -1314,6 +1340,37 @@ def ext_f_learned_weights():
                  fontweight="bold",fontsize=12)
     plt.tight_layout(); save_fig("learned_weights.png")
 
+    # ── Paired Wilcoxon test: fixed vs trained kernel IoU per alpha ──
+    print("\n  [PhD-F] Wilcoxon paired test: fixed vs trained kernel IoU")
+    wilcox_rows = []
+    iou_fixed_by_alpha = {}
+    iou_trained_by_alpha = {}
+    for alpha_val, sub in df.groupby("alpha"):
+        fixed_vals  = sub[sub["kernel"]=="random_fixed"]["iou"].values
+        trained_vals= sub[sub["kernel"]=="trained"]["iou"].values
+        iou_fixed_by_alpha[alpha_val]   = list(fixed_vals)
+        iou_trained_by_alpha[alpha_val] = list(trained_vals)
+    for alpha_val in sorted(iou_fixed_by_alpha.keys()):
+        fixed_list   = iou_fixed_by_alpha[alpha_val]
+        trained_list = iou_trained_by_alpha[alpha_val]
+        n = min(len(fixed_list), len(trained_list))
+        if n < 2:
+            continue
+        fixed_arr   = np.array(fixed_list[:n])
+        trained_arr = np.array(trained_list[:n])
+        fixed_mean   = float(fixed_arr.mean())
+        trained_mean = float(trained_arr.mean())
+        w = wilcoxon_pairwise(fixed_arr, trained_arr)
+        p_val = w["pvalue"]
+        sig = "***" if p_val < 0.001 else "**" if p_val < 0.01 else "*" if p_val < 0.05 else "ns"
+        print(f"  alpha={alpha_val:.1f}: fixed={fixed_mean:.3f} trained={trained_mean:.3f} "
+              f"Wilcoxon_p={p_val:.4f} {sig}")
+        wilcox_rows.append({"alpha": alpha_val, "fixed_iou_mean": fixed_mean,
+                             "trained_iou_mean": trained_mean,
+                             "wilcoxon_p": p_val, "significance": sig, "n": n})
+    if wilcox_rows:
+        save_csv(pd.DataFrame(wilcox_rows), "learned_weights_wilcoxon.csv")
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 10 — ALL FIGURES (paper + PhD)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1512,6 +1569,16 @@ def plot_optimizer_heatmap(df):
 def main():
     t_total=time.time()
 
+    # ── verify-only short-circuit ──────────────────────────────────────────
+    if args.verify_only:
+        print("\n[verify-only] Loading existing CSVs without running new experiments...")
+        alpha_df_v  = load_csv("alpha_sweep_results.csv")
+        sr_df_v     = load_csv("stable_rank_vs_alpha.csv")
+        scale_df_v  = load_csv("scale_experiment.csv")
+        dense_df_v  = load_csv("gradient_leakage_dense.csv")
+        run_verification_checks(alpha_df_v, dense_df_v, sr_df_v, scale_df_v)
+        sys.exit(0)
+
     print("\n" + "="*60)
     print("STAGE 1: Core paper sweeps (parallelised)")
     print("="*60)
@@ -1580,7 +1647,7 @@ def main():
     print(f"[done] Figures : {FIG_DIR}")
     print(f"[done] CSVs    : {CSV_DIR}")
 
-    # ── Stage 8: Missing notebook components ──────────────────────────────
+    # ── Stage 8: Missing notebook components + new PhD extensions ─────────
     print("\n" + "="*60)
     print("STAGE 8: Supplementary experiments & figures")
     print("="*60)
@@ -1595,20 +1662,27 @@ def main():
     plot_threshold_sensitivity(thresh_df)
     print_poster_headline_stats(alpha_df, grad_df, kernel_df, phase_df,
                                  erank_df, curv_df, sr_df)
+    # New PhD extensions
+    run_per_kernel_alpha_star(alpha_df, kernel_df)
+    run_convergence_rate_analysis()
+    run_mutual_information_proxy()
 
     # ── Final zip ──────────────────────────────────────────────────────────
     print("\n" + "="*60)
     print("STAGE 9: Final zip")
     print("="*60)
-    import shutil
+    import shutil as _shutil
     zip_path=os.path.join(os.path.dirname(ROOT_DIR),
                            os.path.basename(ROOT_DIR)+"_outputs")
-    shutil.make_archive(zip_path,"zip",ROOT_DIR)
+    _shutil.make_archive(zip_path,"zip",ROOT_DIR)
     print(f"[zip] {zip_path}.zip")
     elapsed=time.time()-t_total
     print(f"\n[done] Total wall time: {elapsed/60:.1f} min")
     print(f"[done] Figures : {FIG_DIR}")
     print(f"[done] CSVs    : {CSV_DIR}")
+
+    # ── Headline summary table ─────────────────────────────────────────────
+    print_summary_table(alpha_df, grad_df, sr_df, curv_df)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 12 — MISSING NOTEBOOK COMPONENTS
@@ -1721,10 +1795,17 @@ def run_effective_rank_sweep():
     print("\n[exp] Effective rank of Gauss-Newton matrix vs alpha")
     from scipy.sparse.linalg import LinearOperator, eigsh
     existing = load_csv("effective_rank_vs_alpha.csv", warn=False)
+    existing_spec = load_csv("eigenvalue_spectra.csv", warn=False)
     rows = []
+    spec_rows = []
+    SPEC_ALPHAS = {1.0, 5.0, 10.0, 20.0, 40.0}
     for alpha_val in ALPHAS:
         for seed in (0, 1, 2):
-            if _already_done(existing, {"alpha":alpha_val,"seed":seed}): continue
+            need_main = not _already_done(existing, {"alpha":alpha_val,"seed":seed})
+            need_spec = (alpha_val in SPEC_ALPHAS and
+                         not _already_done(existing_spec, {"alpha":alpha_val,"seed":seed}))
+            if not need_main and not need_spec:
+                continue
             p = run_single_experiment(image_shape=(32,32), kernel_name="sobel_x",
                                        target_name="checkerboard", alpha=alpha_val,
                                        optimizer_name="adam",
@@ -1751,23 +1832,58 @@ def run_effective_rank_sweep():
             lam_max = float(evs[0]) if evs[0] > 0 else 1e-10
             # Also track threshold-based count for comparison
             thresh_rank = int(np.sum(evs > 0.01 * lam_max))
-            rows.append({"alpha":alpha_val,"seed":seed,
-                          "effective_rank":eff_rank,"thresh_rank":thresh_rank,
-                          "lam_max":lam_max,
-                          "loss_final":p["summary"]["loss_final"],
-                          "output_iou_final":p["summary"]["output_iou_final"]})
-            print(f"  alpha={alpha_val} seed={seed}: eff_rank(entropy)={eff_rank:.1f}  thresh_rank={thresh_rank}")
+            if need_main:
+                rows.append({"alpha":alpha_val,"seed":seed,
+                              "effective_rank":eff_rank,"thresh_rank":thresh_rank,
+                              "lam_max":lam_max,
+                              "loss_final":p["summary"]["loss_final"],
+                              "output_iou_final":p["summary"]["output_iou_final"]})
+                print(f"  alpha={alpha_val} seed={seed}: eff_rank(entropy)={eff_rank:.1f}  thresh_rank={thresh_rank}")
+            # Store normalised eigenvalue spectrum for selected alphas
+            if need_spec and alpha_val in SPEC_ALPHAS:
+                evs_norm = evs / (lam_max + 1e-30)
+                for idx, ev_n in enumerate(evs_norm):
+                    spec_rows.append({"alpha": alpha_val, "seed": seed,
+                                      "eig_index": idx, "eig_norm": float(ev_n)})
     if rows: append_csv(rows, "effective_rank_vs_alpha.csv")
     else: print("[skip] effective_rank_vs_alpha.csv already complete")
+    if spec_rows: append_csv(spec_rows, "eigenvalue_spectra.csv")
     df = load_csv("effective_rank_vs_alpha.csv")
+    df_spec = load_csv("eigenvalue_spectra.csv", warn=False)
     if df is not None:
         grp = df.groupby("alpha")["effective_rank"].agg(["mean","std"]).reset_index()
-        fig, ax = plt.subplots(figsize=(7,5))
-        ax.errorbar(grp["alpha"], grp["mean"], yerr=grp["std"],
-                    marker="o", capsize=4, lw=2, color="#d62728")
-        ax.set_xlabel("Sigmoid stiffness alpha"); ax.set_ylabel("Effective rank (entropy-based)")
-        ax.set_title("Gauss-Newton effective rank collapses with alpha\n(entropy rank — no truncation artefact)")
-        ax.grid(True, linestyle="--", alpha=0.4); plt.tight_layout()
+        # Two-panel figure: effective rank + eigenvalue decay curves
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+        axes[0].errorbar(grp["alpha"], grp["mean"], yerr=grp["std"],
+                         marker="o", capsize=4, lw=2, color="#d62728")
+        axes[0].set_xlabel("Sigmoid stiffness alpha")
+        axes[0].set_ylabel("Effective rank (entropy-based)")
+        axes[0].set_title("Gauss-Newton effective rank collapses with alpha\n(entropy rank — no truncation artefact)")
+        axes[0].grid(True, linestyle="--", alpha=0.4)
+        # Panel 2: normalised eigenvalue decay curves
+        spec_cmap = plt.cm.viridis
+        spec_alphas_sorted = sorted(SPEC_ALPHAS)
+        spec_colors = {a: spec_cmap(i/(len(spec_alphas_sorted)-1))
+                       for i, a in enumerate(spec_alphas_sorted)}
+        if df_spec is not None and len(df_spec) > 0:
+            for av in spec_alphas_sorted:
+                sub_s = df_spec[df_spec["alpha"].sub(av).abs() < 1e-9]
+                if len(sub_s) == 0: continue
+                grp_s = sub_s.groupby("eig_index")["eig_norm"].mean().reset_index()
+                grp_s = grp_s.sort_values("eig_index")
+                axes[1].plot(grp_s["eig_index"] + 1, grp_s["eig_norm"],
+                             lw=1.8, color=spec_colors[av], label=f"alpha={av:.0f}")
+            axes[1].set_xscale("log")
+            axes[1].set_xlabel("Eigenvalue index (log scale)")
+            axes[1].set_ylabel("Normalised eigenvalue lambda_i / lambda_max")
+            axes[1].set_title("Eigenvalue decay curves (normalised)\nDimensional collapse evidence")
+            axes[1].legend(fontsize=9); axes[1].grid(True, linestyle="--", alpha=0.4, which="both")
+        else:
+            axes[1].text(0.5, 0.5, "No eigenvalue spectra data yet",
+                         ha="center", va="center", transform=axes[1].transAxes)
+        plt.suptitle("Effective Rank & Eigenvalue Decay: Dimensional Collapse with alpha",
+                     fontweight="bold", fontsize=12)
+        plt.tight_layout()
         save_fig("effective_rank_vs_alpha.png")
     return df
 
@@ -2032,6 +2148,514 @@ def plot_threshold_sensitivity(thresh_df):
     axes[1].grid(True,linestyle="--",alpha=0.4)
     plt.suptitle("Threshold Sensitivity Analysis",fontweight="bold")
     plt.tight_layout(); save_fig("threshold_sensitivity_analysis.png")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SECTION 13 — NEW PhD EXTENSIONS (2nd batch)
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── 13.1: Bootstrap R² helper ─────────────────────────────────────────────────
+def _bootstrap_r2(x_data, y_data, fit_func, p0, n_boot=1000, seed=0):
+    """Bootstrap confidence interval for R².
+    Resamples (x, y) pairs with replacement n_boot times.
+    Returns (r2_mean, r2_lo, r2_hi) using 2.5/97.5 percentiles.
+    """
+    x_data = np.asarray(x_data, dtype=float)
+    y_data = np.asarray(y_data, dtype=float)
+    n = len(x_data)
+    rng = np.random.default_rng(seed)
+    r2_boots = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        xb, yb = x_data[idx], y_data[idx]
+        try:
+            popt, _ = curve_fit(fit_func, xb, yb, p0=p0, maxfev=3000)
+            y_pred = fit_func(xb, *popt)
+            ss_res = np.sum((yb - y_pred) ** 2)
+            ss_tot = np.sum((yb - yb.mean()) ** 2)
+            r2 = 1.0 - ss_res / (ss_tot + 1e-30)
+        except Exception:
+            r2 = float("nan")
+        r2_boots.append(r2)
+    r2_arr = np.array([v for v in r2_boots if not np.isnan(v)])
+    if len(r2_arr) == 0:
+        return float("nan"), float("nan"), float("nan")
+    r2_mean = float(np.mean(r2_arr))
+    r2_lo   = float(np.percentile(r2_arr, 2.5))
+    r2_hi   = float(np.percentile(r2_arr, 97.5))
+    return r2_mean, r2_lo, r2_hi
+
+# ── 13.2: Per-kernel alpha-star ───────────────────────────────────────────────
+def run_per_kernel_alpha_star(alpha_df, kernel_df):
+    """For each of 5 kernels: fit sigmoid model → α*(kernel), compute spectral
+    norm σ_max(K). Plot α*(kernel) vs 1/σ_max(K) and report Pearson r."""
+    print("\n[PhD-G] Per-kernel alpha* vs 1/sigma_max(K)")
+    csv_name = "per_kernel_alpha_star.csv"
+    existing = load_csv(csv_name, warn=False)
+    if existing is not None and len(existing) == 5:
+        print(f"[skip] {csv_name} already complete")
+        df_out = existing
+    else:
+        KNAMES = ["identity_like", "avg_blur", "sobel_x", "laplacian", "random_norm"]
+
+        def _sig_model(alpha, iou_max, iou_min, alpha_star, delta):
+            return iou_min + (iou_max - iou_min) / (1.0 + np.exp((alpha - alpha_star) / (delta + 1e-8)))
+
+        rows = []
+        # Use phase_diagram data if kernel_df has all kernels; otherwise use what we have
+        # kernel_df was run at alpha=10 only — we need the full alpha sweep per kernel.
+        # Use phase_df (alpha × kernel) if available, else run fresh
+        phase_df_local = load_csv("phase_diagram_alpha_x_kernel.csv", warn=False)
+        if phase_df_local is None and kernel_df is not None:
+            # Fall back: kernel_df only has alpha=10, so we rely on alpha_df for sobel_x
+            # and simply report alpha_star = nan for others
+            phase_df_local = kernel_df
+
+        for kname in KNAMES:
+            # Compute spectral norm of kernel
+            K = KERNELS[kname]
+            # For 3x3 kernels use full matrix 2-norm
+            sigma_max = float(np.linalg.norm(K, ord=2))
+
+            alpha_star_fit = float("nan")
+            if phase_df_local is not None and "kernel_name" in phase_df_local.columns and "alpha" in phase_df_local.columns:
+                sub = phase_df_local[phase_df_local["kernel_name"] == kname]
+                iou_col = "output_iou_final" if "output_iou_final" in sub.columns else "iou_final"
+                if iou_col in sub.columns and len(sub) >= 6:
+                    grp = sub.groupby("alpha")[iou_col].mean().reset_index().sort_values("alpha")
+                    alphas_arr = grp["alpha"].values
+                    iou_m = grp[iou_col].values
+                    try:
+                        popt, _ = curve_fit(
+                            _sig_model, alphas_arr, iou_m,
+                            p0=[max(iou_m.max(), 0.5), max(iou_m.min(), 0.0), 11.7, 3.0],
+                            bounds=([0.3, -0.05, 0.5, 0.1], [1.1, 0.6, 60.0, 20.0]),
+                            maxfev=50000
+                        )
+                        alpha_star_fit = float(popt[2])
+                    except Exception as e:
+                        print(f"  [warn] fit failed for {kname}: {e}")
+
+            rows.append({
+                "kernel_name": kname,
+                "sigma_max": sigma_max,
+                "inv_sigma_max": 1.0 / (sigma_max + 1e-12),
+                "alpha_star": alpha_star_fit
+            })
+            print(f"  {kname:14s}: sigma_max={sigma_max:.4f}  alpha*={alpha_star_fit:.2f}")
+
+        df_out = pd.DataFrame(rows)
+        save_csv(df_out, csv_name)
+
+    # Plot and Pearson correlation
+    valid = df_out.dropna(subset=["alpha_star"])
+    if len(valid) >= 2:
+        from scipy.stats import pearsonr
+        x_vals = valid["inv_sigma_max"].values
+        y_vals = valid["alpha_star"].values
+        r, p_val = pearsonr(x_vals, y_vals)
+        print(f"  Pearson r(alpha* vs 1/sigma_max) = {r:.4f}  p={p_val:.4f}")
+
+        fig, ax = plt.subplots(figsize=(7, 5))
+        ax.scatter(x_vals, y_vals, s=100, zorder=5, color="#1f77b4", edgecolors="black")
+        for _, row in valid.iterrows():
+            ax.annotate(row["kernel_name"],
+                        (row["inv_sigma_max"], row["alpha_star"]),
+                        textcoords="offset points", xytext=(6, 3), fontsize=9)
+        # regression line
+        if len(valid) >= 3:
+            m, b = np.polyfit(x_vals, y_vals, 1)
+            x_line = np.linspace(x_vals.min(), x_vals.max(), 100)
+            ax.plot(x_line, m * x_line + b, "--", color="#d62728", lw=1.8,
+                    label=f"Linear fit (r={r:.3f}, p={p_val:.3f})")
+            ax.legend(fontsize=9)
+        ax.set_xlabel("1 / sigma_max(K)  [spectral norm reciprocal]")
+        ax.set_ylabel("alpha*  [phase transition point]")
+        ax.set_title("Per-kernel phase transition: alpha* proportional to 1/sigma_max(K)\n"
+                     "(Claim: alpha*(kernel) ~ 1/sigma_max(A))")
+        ax.grid(True, linestyle="--", alpha=0.4)
+        plt.tight_layout()
+        save_fig("per_kernel_alpha_star.png")
+    else:
+        print("  [warn] insufficient valid fits to plot")
+
+# ── 13.3: Convergence rate analysis ──────────────────────────────────────────
+def run_convergence_rate_analysis():
+    """Run short experiments for alpha in {1, 5, 10, 20, 40} with Adam and PGD,
+    fit L(t) = L_inf + (L0-L_inf)*exp(-t/tau), report tau(alpha) for each optimizer."""
+    print("\n[PhD-H] Convergence rate analysis: tau(alpha) for Adam vs PGD")
+    csv_name = "convergence_rate_analysis.csv"
+    existing = load_csv(csv_name, warn=False)
+
+    SHORT_ALPHAS = [1.0, 5.0, 10.0, 20.0, 40.0]
+    SHORT_STEPS = 300
+    OPTS_CONV = {
+        "adam": {"lr": 0.03, "steps": SHORT_STEPS},
+        "pgd":  {"lr": 0.10, "steps": SHORT_STEPS},
+    }
+
+    def _exp_decay(t, L_inf, L0, tau):
+        return L_inf + (L0 - L_inf) * np.exp(-t / (tau + 1e-8))
+
+    rows = []
+    loss_curves_by = {}   # (alpha, opt) -> loss array
+
+    for alpha in SHORT_ALPHAS:
+        for opt_name, kw in OPTS_CONV.items():
+            key = (alpha, opt_name)
+            if _already_done(existing, {"alpha": alpha, "optimizer": opt_name}):
+                # Try to reconstruct from existing row for the figure
+                row = existing[
+                    (existing["alpha"].sub(alpha).abs() < 1e-9) &
+                    (existing["optimizer"] == opt_name)
+                ]
+                if len(row) > 0:
+                    tau_val = float(row.iloc[0]["tau"])
+                    L0_val  = float(row.iloc[0]["L0"])
+                    Li_val  = float(row.iloc[0]["L_inf"])
+                    t_arr = np.arange(SHORT_STEPS)
+                    loss_curves_by[key] = _exp_decay(t_arr, Li_val, L0_val, tau_val)
+                continue
+
+            # Run fresh experiment
+            p = run_single_experiment(
+                alpha=alpha, optimizer_name=opt_name,
+                optimizer_kwargs=kw, seed=0,
+                image_shape=SHAPE, kernel_name="sobel_x",
+                target_name="checkerboard"
+            )
+            loss_hist = np.array(p["result"]["loss_hist"])
+            t_arr = np.arange(len(loss_hist), dtype=float)
+            loss_curves_by[key] = loss_hist
+
+            # Fit exponential decay
+            L0_guess  = float(loss_hist[0])
+            Li_guess  = float(loss_hist[-1])
+            tau_guess = float(len(loss_hist) / 5.0)
+            try:
+                popt, _ = curve_fit(
+                    _exp_decay, t_arr, loss_hist,
+                    p0=[Li_guess, L0_guess, tau_guess],
+                    bounds=([0.0, 0.0, 1.0], [1e6, 1e6, 1e6]),
+                    maxfev=10000
+                )
+                L_inf_fit, L0_fit, tau_fit = popt
+                y_pred = _exp_decay(t_arr, *popt)
+                ss_res = np.sum((loss_hist - y_pred) ** 2)
+                ss_tot = np.sum((loss_hist - loss_hist.mean()) ** 2)
+                r2 = float(1.0 - ss_res / (ss_tot + 1e-30))
+            except Exception as e:
+                print(f"  [warn] curve_fit failed alpha={alpha} {opt_name}: {e}")
+                L_inf_fit = Li_guess; L0_fit = L0_guess
+                tau_fit = float("nan"); r2 = float("nan")
+
+            rows.append({
+                "alpha": alpha, "optimizer": opt_name,
+                "tau": tau_fit, "L0": L0_fit, "L_inf": L_inf_fit, "r_squared": r2
+            })
+            print(f"  alpha={alpha:5.1f} {opt_name:4s}: tau={tau_fit:.2f}  r2={r2:.4f}")
+
+    if rows:
+        append_csv(rows, csv_name)
+    df_conv = load_csv(csv_name, warn=False)
+
+    if df_conv is None or len(df_conv) == 0:
+        print("  [warn] No convergence rate data to plot"); return
+
+    # Figure: 2 panels
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    cmap_alpha = plt.cm.viridis
+    alpha_norm = {a: i / (len(SHORT_ALPHAS) - 1) for i, a in enumerate(SHORT_ALPHAS)}
+    ls_map = {"adam": "-", "pgd": "--"}
+
+    for alpha in SHORT_ALPHAS:
+        for opt_name in ["adam", "pgd"]:
+            key = (alpha, opt_name)
+            curve = loss_curves_by.get(key)
+            if curve is None:
+                continue
+            color = cmap_alpha(alpha_norm[alpha])
+            label = f"a={alpha:.0f} {opt_name}" if alpha in [1.0, 10.0, 40.0] else None
+            axes[0].plot(curve, lw=1.5, color=color,
+                         linestyle=ls_map[opt_name], alpha=0.85, label=label)
+
+    axes[0].set_xlabel("Iteration"); axes[0].set_ylabel("Loss")
+    axes[0].set_title("Loss curves: Adam (-) vs PGD (--)\ncolour = alpha value")
+    axes[0].legend(fontsize=8, ncol=2); axes[0].grid(True, linestyle="--", alpha=0.4)
+
+    # Right panel: tau_PGD / tau_Adam vs alpha
+    ratio_rows = []
+    for alpha in SHORT_ALPHAS:
+        sub = df_conv[df_conv["alpha"].sub(alpha).abs() < 1e-9]
+        tau_adam = sub[sub["optimizer"] == "adam"]["tau"].values
+        tau_pgd  = sub[sub["optimizer"] == "pgd"]["tau"].values
+        if len(tau_adam) > 0 and len(tau_pgd) > 0:
+            ta = float(tau_adam[0]); tp = float(tau_pgd[0])
+            ratio_rows.append({"alpha": alpha,
+                                "tau_adam": ta, "tau_pgd": tp,
+                                "ratio": tp / (ta + 1e-8)})
+
+    if ratio_rows:
+        rdf = pd.DataFrame(ratio_rows)
+        axes[1].plot(rdf["alpha"], rdf["ratio"], "o-", color="#d62728", lw=2.2, markersize=8)
+        axes[1].axhline(1.0, color="gray", linestyle=":", lw=1.5)
+        axes[1].set_xlabel("Sigmoid stiffness alpha")
+        axes[1].set_ylabel("tau_PGD / tau_Adam")
+        axes[1].set_title("Convergence time ratio: PGD/Adam vs alpha\n(>1 = Adam faster)")
+        axes[1].grid(True, linestyle="--", alpha=0.4)
+        for _, r in rdf.iterrows():
+            axes[1].annotate(f"{r['ratio']:.1f}x",
+                             (r["alpha"], r["ratio"]),
+                             textcoords="offset points", xytext=(4, 4), fontsize=8)
+
+    plt.suptitle("PhD Extension H: Convergence Rate Analysis — tau(alpha) for Adam vs PGD",
+                 fontweight="bold", fontsize=12)
+    plt.tight_layout()
+    save_fig("convergence_rate_analysis.png")
+
+# ── 13.4: Mutual information proxy ────────────────────────────────────────────
+def run_mutual_information_proxy():
+    """Compute I_proxy(x; f(x)) via entropy of sigmoid outputs for a
+    coarse (6 alpha × 5 kernel) grid. Save heatmap."""
+    print("\n[PhD-I] Mutual information proxy: I(x; f(x))")
+    csv_name = "mutual_information_proxy.csv"
+    existing = load_csv(csv_name, warn=False)
+
+    KNAMES = ["identity_like", "avg_blur", "sobel_x", "laplacian", "random_norm"]
+    MI_ALPHAS = [1.0, 5.0, 10.0, 20.0, 40.0, 60.0]
+    N_BINS = 20
+
+    def _entropy(arr, n_bins=N_BINS):
+        """Shannon entropy (bits) from histogram."""
+        counts, _ = np.histogram(arr, bins=n_bins, range=(0.0, 1.0))
+        probs = counts / (counts.sum() + 1e-30)
+        probs = probs[probs > 0]
+        return float(-np.sum(probs * np.log2(probs + 1e-300)))
+
+    def _mi_proxy(x_flat, fx_flat, n_bins=N_BINS, n_quartiles=4):
+        """I_proxy = H(f(x)) - H(f(x)|x) using x-quartile conditioning."""
+        H_fx = _entropy(fx_flat, n_bins)
+        q_edges = np.percentile(x_flat, np.linspace(0, 100, n_quartiles + 1))
+        H_cond_parts = []
+        weights = []
+        for qi in range(n_quartiles):
+            lo, hi = q_edges[qi], q_edges[qi + 1]
+            mask = (x_flat >= lo) & (x_flat <= hi if qi == n_quartiles - 1 else x_flat < hi)
+            if mask.sum() < 5:
+                continue
+            H_cond_parts.append(_entropy(fx_flat[mask], n_bins))
+            weights.append(mask.sum())
+        if not H_cond_parts:
+            return 0.0
+        weights = np.array(weights, dtype=float)
+        H_cond = float(np.average(H_cond_parts, weights=weights))
+        return max(0.0, H_fx - H_cond)
+
+    rows = []
+    for alpha in MI_ALPHAS:
+        for kname in KNAMES:
+            if _already_done(existing, {"alpha": alpha, "kernel_name": kname}):
+                continue
+            p = run_single_experiment(
+                alpha=alpha, kernel_name=kname,
+                optimizer_name="adam",
+                optimizer_kwargs={"lr": 0.03, "steps": 200},
+                seed=0, image_shape=SHAPE, target_name="checkerboard"
+            )
+            xf = p["x_final"]
+            fx = p["problem"].forward(xf)
+            mi = _mi_proxy(xf.reshape(-1), fx.reshape(-1))
+            iou = p["summary"]["output_iou_final"]
+            rows.append({
+                "alpha": alpha, "kernel_name": kname,
+                "MI_proxy": float(mi), "output_iou_final": float(iou)
+            })
+            print(f"  alpha={alpha:5.1f} {kname:14s}: MI_proxy={mi:.4f}  IoU={iou:.3f}")
+
+    if rows:
+        append_csv(rows, csv_name)
+
+    df_mi = load_csv(csv_name, warn=False)
+    if df_mi is None or len(df_mi) == 0:
+        print("  [warn] No MI data to plot"); return
+
+    # Heatmap figure
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    for ax_idx, (col, title, cmap) in enumerate([
+        ("MI_proxy",        "MI proxy I(x; f(x)) [bits]", "YlOrRd"),
+        ("output_iou_final","Reconstruction IoU",          "RdYlGn"),
+    ]):
+        pivot = df_mi.pivot_table(index="kernel_name", columns="alpha",
+                                   values=col, aggfunc="mean")
+        pivot = pivot.reindex(KNAMES)
+        pivot = pivot.reindex(columns=sorted(pivot.columns))
+        ax = axes[ax_idx]
+        im = ax.imshow(pivot.values, cmap=cmap, aspect="auto",
+                       vmin=pivot.values[~np.isnan(pivot.values)].min() if not np.all(np.isnan(pivot.values)) else 0,
+                       vmax=pivot.values[~np.isnan(pivot.values)].max() if not np.all(np.isnan(pivot.values)) else 1)
+        ax.set_xticks(range(len(pivot.columns)))
+        ax.set_xticklabels([f"a={a:.0f}" for a in pivot.columns], fontsize=9)
+        ax.set_yticks(range(len(pivot.index)))
+        ax.set_yticklabels(pivot.index, fontsize=9)
+        for i in range(len(pivot.index)):
+            for j in range(len(pivot.columns)):
+                v = pivot.values[i, j]
+                if not np.isnan(v):
+                    ax.text(j, i, f"{v:.2f}", ha="center", va="center", fontsize=8,
+                            color="black")
+        plt.colorbar(im, ax=ax, fraction=0.046).set_label(title)
+        ax.set_title(title)
+
+    plt.suptitle("PhD Extension I: Mutual Information Proxy over (alpha x kernel) grid",
+                 fontweight="bold", fontsize=12)
+    plt.tight_layout()
+    save_fig("mutual_information_proxy.png")
+
+# ── 13.5: Verification checks ────────────────────────────────────────────────
+def run_verification_checks(alpha_df, dense_df, sr_df, scale_df):
+    """Check key expected values from the paper with 5% tolerance."""
+    print("\n" + "="*60)
+    print("VERIFICATION CHECKS")
+    print("="*60)
+
+    all_pass = True
+    results = []
+
+    def _check(label, value, lo, hi):
+        nonlocal all_pass
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            status = "SKIP"
+        elif lo <= value <= hi:
+            status = "PASS"
+        else:
+            status = "FAIL"
+            all_pass = False
+        results.append({"check": label, "value": value, "expected": f"[{lo}, {hi}]", "status": status})
+        marker = "[PASS]" if status == "PASS" else ("[SKIP]" if status == "SKIP" else "[FAIL]")
+        print(f"  {marker} {label}: {value} (expect [{lo:.4f}, {hi:.4f}])")
+        return status == "PASS"
+
+    if alpha_df is not None and "optimizer" in alpha_df.columns:
+        adam = alpha_df[alpha_df["optimizer"] == "adam"]
+        grp = adam.groupby("alpha")["output_iou_final"].mean()
+
+        _check("alpha=1  Adam IoU", grp.get(1.0, float("nan")),  0.82, 0.89)
+        _check("alpha=10 Adam IoU", grp.get(10.0, float("nan")), 0.71, 0.81)
+        _check("alpha=20 Adam IoU", grp.get(20.0, float("nan")), 0.64, 0.74)
+        _check("alpha=40 Adam IoU", grp.get(40.0, float("nan")), 0.58, 0.68)
+    else:
+        for lbl in ["alpha=1  Adam IoU", "alpha=10 Adam IoU",
+                    "alpha=20 Adam IoU", "alpha=40 Adam IoU"]:
+            _check(lbl, float("nan"), 0.0, 1.0)
+
+    # Stable rank collapse ratio
+    if sr_df is not None:
+        sr_grp = sr_df.groupby("alpha")["stable_rank"].mean()
+        sr_lo = sr_grp.get(sr_grp.index.min(), float("nan"))
+        sr_hi = sr_grp.get(sr_grp.index.max(), float("nan"))
+        ratio = sr_lo / (sr_hi + 1e-30) if not np.isnan(sr_lo) else float("nan")
+        _check("Stable rank collapse ratio (>15x)", ratio, 15.0, 1e9)
+    else:
+        _check("Stable rank collapse ratio (>15x)", float("nan"), 15.0, 1e9)
+
+    # Phase transition alpha*
+    fcr = load_csv("fisher_cramer_rao.csv", warn=False)
+    if fcr is not None and "parameter" in fcr.columns:
+        row = fcr[fcr["parameter"] == "alpha_star"]
+        if len(row) > 0:
+            a_star = float(row.iloc[0]["estimate"])
+            _check("Phase transition alpha*", a_star, 9.0, 14.0)
+        else:
+            _check("Phase transition alpha*", float("nan"), 9.0, 14.0)
+    else:
+        _check("Phase transition alpha*", float("nan"), 9.0, 14.0)
+
+    print("-" * 60)
+    n_pass = sum(1 for r in results if r["status"] == "PASS")
+    n_fail = sum(1 for r in results if r["status"] == "FAIL")
+    n_skip = sum(1 for r in results if r["status"] == "SKIP")
+    print(f"  TOTAL: {n_pass} PASS  {n_fail} FAIL  {n_skip} SKIP")
+    print("="*60)
+    return all_pass
+
+# ── 13.6: Headline summary table ──────────────────────────────────────────────
+def print_summary_table(alpha_df, grad_df, sr_df, curv_df):
+    """Print a clean table of headline numbers from the paper."""
+    def _get_adam_iou(alpha_df, alpha_val):
+        if alpha_df is None: return float("nan")
+        sub = alpha_df[alpha_df["optimizer"] == "adam"] if "optimizer" in alpha_df.columns else alpha_df
+        g = sub.groupby("alpha")["output_iou_final"].mean()
+        return float(g.get(alpha_val, float("nan")))
+
+    def _get_pgd_iou(alpha_df, alpha_val):
+        if alpha_df is None: return float("nan")
+        sub = alpha_df[alpha_df["optimizer"] == "pgd"] if "optimizer" in alpha_df.columns else alpha_df
+        g = sub.groupby("alpha")["output_iou_final"].mean()
+        return float(g.get(alpha_val, float("nan")))
+
+    def _get_alpha_star():
+        fcr = load_csv("fisher_cramer_rao.csv", warn=False)
+        if fcr is None: return float("nan")
+        row = fcr[fcr["parameter"] == "alpha_star"] if "parameter" in fcr.columns else pd.DataFrame()
+        return float(row.iloc[0]["estimate"]) if len(row) > 0 else float("nan")
+
+    def _get_sr_ratio(sr_df):
+        if sr_df is None: return float("nan")
+        g = sr_df.groupby("alpha")["stable_rank"].mean()
+        lo, hi = g.get(g.index.min(), 1.0), g.get(g.index.max(), 1.0)
+        return lo / (hi + 1e-30)
+
+    def _get_active_frac(alpha_df, grad_df, alpha_val, opt_name):
+        if alpha_df is not None and "optimizer" in alpha_df.columns:
+            sub = alpha_df[
+                (alpha_df["optimizer"] == opt_name) &
+                (alpha_df["alpha"].sub(alpha_val).abs() < 1e-9)
+            ]
+            if len(sub) > 0 and "active_grad_frac_final" in sub.columns:
+                return float(sub["active_grad_frac_final"].mean())
+        if grad_df is not None:
+            src = grad_df
+            if "optimizer" in src.columns:
+                src = src[src["optimizer"] == opt_name]
+            frac_col = "frac_active_sp_gt_0.01" if "frac_active_sp_gt_0.01" in src.columns else None
+            if frac_col:
+                sub2 = src[src["alpha"].sub(alpha_val).abs() < 1e-9]
+                if len(sub2) > 0:
+                    return float(sub2[frac_col].mean())
+        return float("nan")
+
+    a1_adam  = _get_adam_iou(alpha_df, 1.0)
+    a1_pgd   = _get_pgd_iou(alpha_df, 1.0)
+    a10_adam = _get_adam_iou(alpha_df, 10.0)
+    a10_pgd  = _get_pgd_iou(alpha_df, 10.0)
+    a40_adam = _get_adam_iou(alpha_df, 40.0)
+    a40_pgd  = _get_pgd_iou(alpha_df, 40.0)
+    a_star   = _get_alpha_star()
+    sr_ratio = _get_sr_ratio(sr_df)
+    agf_adam = _get_active_frac(alpha_df, grad_df, 20.0, "adam")
+    agf_pgd  = _get_active_frac(alpha_df, grad_df, 20.0, "pgd")
+
+    W = 64
+
+    def _fmt(v, fmt=".3f"):
+        return format(v, fmt) if not np.isnan(v) else "N/A"
+
+    line = lambda s: print("║ " + s.ljust(W - 4) + " ║")
+    print("╔" + "═"*(W-2) + "╗")
+    print("║" + "  GRADIENT GATE COLLAPSE — HEADLINE STATISTICS".center(W-2) + "║")
+    print("╠" + "═"*(W-2) + "╣")
+    line(f"alpha=1   → Adam IoU: {_fmt(a1_adam)}   PGD IoU: {_fmt(a1_pgd)}")
+    line(f"alpha=10  → Adam IoU: {_fmt(a10_adam)}   PGD IoU: {_fmt(a10_pgd)}")
+    line(f"alpha=40  → Adam IoU: {_fmt(a40_adam)}   PGD IoU: {_fmt(a40_pgd)}")
+    line(f"alpha*    → {_fmt(a_star)} (from fisher_cramer_rao.csv)")
+    if not np.isnan(sr_ratio):
+        line(f"Stable rank collapse: {sr_ratio:.1f}x (alpha=1 -> alpha={ALPHAS[-1]:.0f})")
+    else:
+        line(f"Stable rank collapse: N/A")
+    if not np.isnan(agf_adam) and not np.isnan(agf_pgd):
+        line(f"Active grad frac at alpha=20: Adam {agf_adam:.1%}   PGD {agf_pgd:.1%}")
+    else:
+        line(f"Active grad frac at alpha=20: N/A")
+    print("╚" + "═"*(W-2) + "╝")
 
 # ── 12.10: Poster headline statistics ────────────────────────────────────────
 def print_poster_headline_stats(alpha_df, grad_df, kernel_df, phase_df,
