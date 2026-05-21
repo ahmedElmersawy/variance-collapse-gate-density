@@ -775,7 +775,7 @@ def run_convergence_bands():
 
 # ── S7.14: Curvature sweep ────────────────────────────────────────────────────
 def _dir_curv(problem, x, v, eps=1e-3):
-    v=v/np.linalg.norm(v); xp=project_box(x+eps*v); xm=project_box(x-eps*v)
+    v=v.reshape(x.shape); v=v/np.linalg.norm(v); xp=project_box(x+eps*v); xm=project_box(x-eps*v)
     return (problem.loss(xp)-2*problem.loss(x)+problem.loss(xm))/eps**2
 
 def run_curvature_sweep():
