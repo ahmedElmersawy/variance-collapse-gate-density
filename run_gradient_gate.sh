@@ -32,7 +32,7 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export FIXED_CNN_ROOT_DIR=$HOME/gradient_gate_outputs
 
 # ── Copy script to scratch (faster I/O for figure writes) ─────────────────────
-SCRATCH=/scratch/$USER/$SLURM_JOB_ID
+SCRATCH=${RCAC_SCRATCH:-/scratch/gilbreth/$USER}/$SLURM_JOB_ID
 mkdir -p $SCRATCH
 cp $HOME/run_experiments.py $SCRATCH/
 cd $SCRATCH
