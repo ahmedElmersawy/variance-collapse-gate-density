@@ -193,10 +193,11 @@ def _build_kernels():
     lap_raw = np.array([[0,1,0],[1,-4,1],[0,1,0]], dtype=float)
     K["laplacian"] = lap_raw / _sigma_max(lap_raw) * 8.0
 
-    # Random: normalize so σ_max = 1.0
+    # Random: normalize so σ_max = 2.0 (between identity and Sobel)
+    # This gives a real phase transition between α*_Sobel≈11.7 and α*_Laplacian
     rng = np.random.default_rng(7)
     rn = rng.standard_normal((3,3))
-    K["random_norm"] = rn / _sigma_max(rn)
+    K["random_norm"] = rn / _sigma_max(rn) * 2.0
     return K
 
 KERNELS = _build_kernels()
@@ -1494,7 +1495,9 @@ def plot_phase_transition_fit(df):
     def _sig(a,iou_max,iou_min,a_star,delta):
         return iou_min+(iou_max-iou_min)/(1.+np.exp((a-a_star)/(delta+1e-8)))
     popt,_=curve_fit(_sig,grp["alpha"].values,grp["mean"].values,
-                      p0=[grp["mean"].max(),grp["mean"].min(),10.,3.],maxfev=10000)
+                      p0=[max(grp["mean"].max(),0.5), max(grp["mean"].min(),0.0), 11.7, 3.0],
+                      bounds=([0.3,-0.05,0.5,0.1],[1.1,0.6,60.0,20.0]),
+                      maxfev=50000)
     a_dense=np.linspace(grp["alpha"].min(),grp["alpha"].max(),300)
     fig,ax=plt.subplots(figsize=(7,5))
     ax.errorbar(grp["alpha"],grp["mean"],yerr=grp["std"]/np.sqrt(grp["count"]),
@@ -2231,11 +2234,14 @@ def run_per_kernel_alpha_star(alpha_df, kernel_df):
             # and simply report alpha_star = nan for others
             phase_df_local = kernel_df
 
+        def _op_sigma_max(k, N=SHAPE[0]):
+            """Spectral norm of circular convolution operator — same formula as _build_kernels."""
+            kp = np.zeros((N, N)); kp[:k.shape[0], :k.shape[1]] = k
+            return float(np.abs(np.fft.fft2(kp)).max())
+
         for kname in KNAMES:
-            # Compute spectral norm of kernel
             K = KERNELS[kname]
-            # For 3x3 kernels use full matrix 2-norm
-            sigma_max = float(np.linalg.norm(K, ord=2))
+            sigma_max = _op_sigma_max(K)  # spectral norm of convolution operator
 
             alpha_star_fit = float("nan")
             if phase_df_local is not None and "kernel_name" in phase_df_local.columns and "alpha" in phase_df_local.columns:
