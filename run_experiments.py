@@ -1596,10 +1596,6 @@ def main():
     print(f"[done] Figures : {FIG_DIR}")
     print(f"[done] CSVs    : {CSV_DIR}")
 
-if __name__ == "__main__":
-    main()
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 12 — MISSING NOTEBOOK COMPONENTS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2057,3 +2053,5 @@ def print_poster_headline_stats(alpha_df, grad_df, kernel_df, phase_df,
             print(f"   {kname:>14s}: IoU={row['mean']:.3f} +/- {row['std']:.3f}")
     print("="*72)
 
+if __name__ == "__main__":
+    main()
