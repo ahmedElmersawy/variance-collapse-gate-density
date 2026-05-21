@@ -1229,7 +1229,13 @@ def ext_f_learned_weights():
                 dK=np.zeros_like(K)
                 for x2d,y2d in zip(x_list,y_list):
                     z=_apply(x2d,K); h=_sig2d(z,min(alpha,5.0)); gate=sigmoid_prime(h,min(alpha,5.0))
-                    err=h-y2d; dK+=convolve(err*gate,x2d[::-1,::-1],mode="wrap")
+                    err=h-y2d
+                    e=err*gate
+                    R=np.real(np.fft.ifft2(np.fft.fft2(e)*np.conj(np.fft.fft2(x2d))))
+                    kHh,kWh=K.shape[0]//2,K.shape[1]//2; H,W=x2d.shape
+                    rows=[(ki-kHh)%H for ki in range(K.shape[0])]
+                    cols=[(kj-kWh)%W for kj in range(K.shape[1])]
+                    dK+=R[np.ix_(rows,cols)]
                 dK/=len(x_list)
                 gnorm=np.linalg.norm(dK)
                 if gnorm>0.5: dK/=gnorm/0.5
