@@ -31,6 +31,11 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # Output root — writes figures/ csv/ arrays/ here
 export FIXED_CNN_ROOT_DIR=$HOME/gradient_gate_outputs
 
+# ── Clear stale CSVs (boundary-condition fix invalidates all prior results) ───
+echo "Clearing stale CSV/figure cache from previous runs..."
+rm -rf $FIXED_CNN_ROOT_DIR/csv $FIXED_CNN_ROOT_DIR/figures $FIXED_CNN_ROOT_DIR/arrays
+mkdir -p $FIXED_CNN_ROOT_DIR/csv $FIXED_CNN_ROOT_DIR/figures $FIXED_CNN_ROOT_DIR/arrays
+
 # ── Copy script to scratch (faster I/O for figure writes) ─────────────────────
 SCRATCH=${RCAC_SCRATCH:-/scratch/gilbreth/$USER}/$SLURM_JOB_ID
 mkdir -p $SCRATCH
