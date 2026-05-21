@@ -175,14 +175,28 @@ def wilcoxon_pairwise(a, b):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _build_kernels():
+    N = SHAPE[0]  # use actual image size for spectral norm computation
+    def _sigma_max(k):
+        """Max singular value of circular convolution operator on NxN grid."""
+        kp = np.zeros((N, N)); kp[:k.shape[0], :k.shape[1]] = k
+        return float(np.abs(np.fft.fft2(kp)).max())
+
     K = {}
-    K["identity_like"] = np.array([[0,0,0],[0,1,0],[0,0,0]], dtype=float)
-    K["avg_blur"]      = np.ones((3,3),dtype=float)/9.0
-    K["sobel_x"]       = np.array([[-1,0,1],[-2,0,2],[-1,0,1]],dtype=float)/np.sqrt(14)
-    K["laplacian"]     = np.array([[0,1,0],[1,-4,1],[0,1,0]],dtype=float)/np.sqrt(20)
+    K["identity_like"] = np.array([[0,0,0],[0,1,0],[0,0,0]], dtype=float)  # σ_max=1.0
+    K["avg_blur"]      = np.ones((3,3),dtype=float)/9.0                     # σ_max=1.0
+
+    # Sobel_x: normalize so σ_max(circular conv operator) = 4.0
+    sobel_raw = np.array([[-1,0,1],[-2,0,2],[-1,0,1]], dtype=float)
+    K["sobel_x"] = sobel_raw / _sigma_max(sobel_raw) * 4.0
+
+    # Laplacian: normalize so σ_max = 8.0
+    lap_raw = np.array([[0,1,0],[1,-4,1],[0,1,0]], dtype=float)
+    K["laplacian"] = lap_raw / _sigma_max(lap_raw) * 8.0
+
+    # Random: normalize so σ_max = 1.0
     rng = np.random.default_rng(7)
-    rn = rng.standard_normal((3,3)); rn /= np.linalg.norm(rn)
-    K["random_norm"]   = rn
+    rn = rng.standard_normal((3,3))
+    K["random_norm"] = rn / _sigma_max(rn)
     return K
 
 KERNELS = _build_kernels()
@@ -232,16 +246,10 @@ class FixedCNNInverseProblem:
         self.tikhonov_lambda = float(config.tikhonov_lambda)
         self.tikhonov_center = float(config.tikhonov_center)
         self.kernel_name = config.kernel_name; self.target_name = config.target_name
-        # x_true is the binary ground truth we want to RECOVER (the "true input")
-        self.x_true = target.astype(np.float64)
-        assert self.x_true.shape == self.image_shape
+        self.y_clean = target.astype(np.float64)  # binary {0,1} target — what f(x) should match
         self.kernel = kernel.astype(np.float64)
         self.kernel_flip = np.flipud(np.fliplr(self.kernel))
-        # y = f(x_true) = sigmoid(K*x_true, α, c) — the OBSERVATION we try to match
-        # This is the correct inverse-problem formulation: given y=f(x_true), recover x_true.
-        # At low α: f is smooth/invertible → easy recovery. At high α: gradient collapse → hard.
-        ax_true = convolve(self.x_true, self.kernel, mode="wrap")
-        self.y_clean = 1.0 / (1.0 + np.exp(-np.clip(self.alpha*(ax_true - self.c), -60, 60)))
+        assert self.y_clean.shape == self.image_shape
         self.y = self.y_clean.copy()
         if config.noise_std > 0:
             rng = np.random.default_rng(0)
@@ -280,21 +288,16 @@ class FixedCNNInverseProblem:
         h = self.forward(x); return np.abs(sigmoid_prime(h, self.alpha))
     def active_grad_fraction(self, x, thr=0.01):
         return float(np.mean(self.gradient_gate(x) > thr))
-    def metrics(self, x):
-        fx = self.forward(x)
-        # x_true is the binary ground truth; use it for input-reconstruction quality
-        x_true = self.x_true
+    def metrics(self, x, x_star=None):
+        fx = self.forward(x); x_star = x_star if x_star is not None else self.y_clean
         gate = self.gradient_gate(x)
         return {"loss": self.loss(x), "data_loss": self.data_loss(x),
                 "grad_norm": self.grad_norm(x),
                 "output_mse": float(np.mean((fx-self.y)**2)),
                 "output_binary_acc": float(np.mean(((fx>=0.5)==(self.y>=0.5)))),
-                # PRIMARY metric: how well x recovers x_true (the binary ground truth)
-                "output_iou": iou_score(x, x_true),
-                # Secondary: how well the forward output matches the observation
-                "fwd_match_iou": iou_score(fx, self.y),
-                "input_psnr_vs_target": psnr(x, x_true),
-                "input_ssim_vs_target": ssim_fast(x, x_true),
+                "output_iou": iou_score(fx, self.y),
+                "input_psnr_vs_target": psnr(x, x_star),
+                "input_ssim_vs_target": ssim_fast(x, x_star),
                 "active_grad_fraction": float(np.mean(gate>0.01)),
                 "saturation_fraction":  float(np.mean(gate<1e-3))}
 
@@ -406,8 +409,8 @@ def run_single_experiment(image_shape=SHAPE, kernel_name="sobel_x",
     x0 = init_x(image_shape, mode=init_mode, seed=seed, target=target)
     result = OPTIMIZER_FUNCS[optimizer_name](problem, x0, **optimizer_kwargs)
     xf = result["x_final"]
-    m0 = problem.metrics(x0)
-    mT = problem.metrics(xf)
+    m0 = problem.metrics(x0, x_star=target)
+    mT = problem.metrics(xf, x_star=target)
     summary = {"image_h":image_shape[0], "image_w":image_shape[1],
                "kernel_name":kernel_name, "target_name":target_name,
                "alpha":alpha, "c":c, "activation":activation,
@@ -590,11 +593,9 @@ def run_scale_sweep():
 # ── S7.6: Two-layer sweep ─────────────────────────────────────────────────────
 class TwoLayerProblem:
     def __init__(self, target, k1, k2, alpha, c=0.5):
-        self.x_true=target.astype(float); self.k1=k1; self.k2=k2
+        self.y=target.astype(float); self.k1=k1; self.k2=k2
         self.kf1=np.flipud(np.fliplr(k1)); self.kf2=np.flipud(np.fliplr(k2))
         self.alpha=alpha; self.c=c
-        # y = f(x_true) — the observation (correct inverse-problem setup)
-        self.y=self.forward(self.x_true)
     def _c1(self,x): return convolve(x,self.k1,mode="wrap")
     def _c1T(self,z): return convolve(z,self.kf1,mode="wrap")
     def _c2(self,x): return convolve(x,self.k2,mode="wrap")
@@ -638,14 +639,14 @@ def run_twolayer_sweep():
             xf1=p1["x_final"]
             s1=sigmoid(p1["problem"].conv(xf1),alpha,0.5)
             rows.append({"alpha":alpha,"seed":seed,"layers":1,
-                          "iou_final":p1["summary"]["output_iou_final"],  # iou_score(x, x_true)
+                          "iou_final":iou_score(p1["problem"].forward(xf1),target),
                           "loss_final":p1["problem"].loss(xf1),
                           "frac_active":float(np.mean(np.abs(sigmoid_prime(s1,alpha))>0.01))})
             # 2-layer
             prob2=TwoLayerProblem(target,k1,k2,alpha)
             xf2=_run_adam_raw(prob2,x0.copy(),steps=STEPS)
             rows.append({"alpha":alpha,"seed":seed,"layers":2,
-                          "iou_final":iou_score(xf2, target),  # input reconstruction quality
+                          "iou_final":iou_score(prob2.forward(xf2),target),
                           "loss_final":prob2.loss(xf2),
                           "frac_active":prob2.active_frac(xf2)})
             print(f"[2L] alpha={alpha} seed={seed}: "
@@ -1302,37 +1303,34 @@ def ext_f_learned_weights():
                 K-=lr*dK
             return K
 
-        def _adam_conv(K, x_true, alpha, steps=300, lr=0.03, seed=0):
-            # y_obs = f(x_true) — correct inverse-problem observation
-            y_obs = _sig2d(_apply(x_true, K), alpha)
-            rng = np.random.default_rng(seed)
-            x = rng.uniform(0, 1, x_true.shape)
-            m = np.zeros_like(x); v = np.zeros_like(x); b1, b2, eps = 0.9, 0.999, 1e-8
-            for t in range(1, steps+1):
-                z = _apply(x, K); h = _sig2d(z, alpha); gate = sigmoid_prime(h, alpha)
-                err = h - y_obs  # compare sigmoid outputs (not binary target)
-                g = 2. * _apply(err * gate, K[::-1, ::-1])
-                m = b1*m + (1-b1)*g; v = b2*v + (1-b2)*g**2
-                x = np.clip(x - lr*(m/(1-b1**t))/(np.sqrt(v/(1-b2**t))+eps), 0., 1.)
-            z = _apply(x, K); h = _sig2d(z, alpha); gate = sigmoid_prime(h, alpha)
-            af = float(np.mean(np.abs(gate) > 0.01))
-            return iou_score(x, x_true), af  # input reconstruction IoU
+        def _adam_conv(K,target2d,alpha,steps=300,lr=0.03,seed=0):
+            rng=np.random.default_rng(seed)
+            x=rng.uniform(0,1,target2d.shape)
+            m=np.zeros_like(x); v=np.zeros_like(x); b1,b2,eps=0.9,0.999,1e-8
+            for t in range(1,steps+1):
+                z=_apply(x,K); h=_sig2d(z,alpha); gate=sigmoid_prime(h,alpha)
+                err=h-target2d
+                g=2.*_apply(err*gate,K[::-1,::-1])
+                m=b1*m+(1-b1)*g; v=b2*v+(1-b2)*g**2
+                x=np.clip(x-lr*(m/(1-b1**t))/(np.sqrt(v/(1-b2**t))+eps),0.,1.)
+            z=_apply(x,K); h=_sig2d(z,alpha); gate=sigmoid_prime(h,alpha)
+            af=float(np.mean(np.abs(gate)>0.01))
+            return iou_score(h,target2d), af  # output-matching IoU, consistent with main sweep
 
         rows=[]
         for alpha in ALPHAS:
-            for seed in range(len(SEEDS)):  # 8 seeds for sufficient Wilcoxon power
+            for seed in range(len(SEEDS)):  # 8 seeds for sufficient Wilcoxon power (p<0.05)
                 rng=np.random.default_rng(seed+42)
                 target=get_targets(*SHAPE)["checkerboard"]
                 x_list=[rng.uniform(0,1,SHAPE) for _ in range(10)]
-                # y_list = continuous sigmoid outputs (not binarized) for kernel training
-                y_list=[_sig2d(_apply(x,K_sobel),1.0) for x in x_list]
+                y_list=[(_sig2d(_apply(x,K_sobel),1.0)>0.5).astype(float) for x in x_list]
                 K_trained=train_kernel(K_sobel,x_list,y_list,alpha)
                 # fixed: use standard runner
                 p_fixed=run_single_experiment(alpha=alpha,seed=seed,optimizer_name="adam",
                                                optimizer_kwargs={"lr":0.03,"steps":STEPS})
                 iou_fixed=p_fixed["summary"]["output_iou_final"]
                 af_fixed=p_fixed["summary"]["active_grad_frac_final"]
-                # trained: fast conv Adam with corrected inverse-problem setup
+                # trained: fast conv Adam
                 iou_trained,af_trained=_adam_conv(K_trained,target,alpha,steps=STEPS,seed=seed)
                 print(f"  a={alpha:.1f} s={seed}: fixed IoU={iou_fixed:.3f} | trained IoU={iou_trained:.3f}")
                 rows.append({"alpha":alpha,"seed":seed,"kernel":"random_fixed",
