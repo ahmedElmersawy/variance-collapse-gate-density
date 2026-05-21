@@ -21,7 +21,7 @@ import matplotlib
 matplotlib.use("Agg")          # non-interactive backend — safe on Colab/headless
 import matplotlib.pyplot as plt
 
-from scipy.signal import convolve2d
+
 from scipy.optimize import minimize, curve_fit
 from scipy.stats import ortho_group
 from scipy.ndimage import convolve, zoom
@@ -68,19 +68,20 @@ random.seed(GLOBAL_SEED)
 
 # ─────────────────────── profile knobs ───────────────────────────────────────
 if args.profile == "full":
-    SEEDS       = (0, 1, 2, 3, 4)
-    STEPS       = 300
-    SHAPE       = (64, 64)
-    ALPHAS      = (1.0, 2.0, 5.0, 10.0, 20.0, 40.0)
-    DENSE_ALPHAS= (1., 2., 5., 8., 10., 12., 14., 16., 18., 20., 25., 30., 40.)
-    SCALE_ALPHAS= (1., 2., 5., 10., 15., 20., 30., 40.)
+    SEEDS        = (0, 1, 2, 3, 4, 5, 6, 7)
+    STEPS        = 600
+    SHAPE        = (64, 64)
+    ALPHAS       = (1.0, 1.5, 2.0, 3.0, 5.0, 7.0, 10.0, 13.0, 16.0, 20.0, 25.0, 30.0, 40.0, 60.0)
+    DENSE_ALPHAS = (1., 1.5, 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12., 13., 14.,
+                    15., 16., 17., 18., 19., 20., 22., 25., 28., 30., 35., 40., 50., 60.)
+    SCALE_ALPHAS = (1., 1.5, 2., 3., 5., 7., 10., 14., 17., 20., 25., 30., 40., 60.)
 else:
-    SEEDS       = (0, 1)
-    STEPS       = 100
-    SHAPE       = (32, 32)
-    ALPHAS      = (1.0, 5.0, 20.0)
-    DENSE_ALPHAS= (1., 5., 10., 20.)
-    SCALE_ALPHAS= (1., 5., 20.)
+    SEEDS        = (0, 1)
+    STEPS        = 150
+    SHAPE        = (32, 32)
+    ALPHAS       = (1.0, 5.0, 10.0, 20.0, 40.0)
+    DENSE_ALPHAS = (1., 5., 10., 20., 40.)
+    SCALE_ALPHAS = (1., 5., 20., 40.)
 
 # ─────────────────────────── CSV helpers ─────────────────────────────────────
 def load_csv(name, warn=True):
@@ -239,9 +240,9 @@ class FixedCNNInverseProblem:
             self.y = np.clip(self.y + config.noise_std*rng.normal(size=self.y.shape), 0.0, 1.0)
 
     def conv(self, x):
-        return convolve2d(x, self.kernel, mode="same", boundary="symm")
+        return convolve(x, self.kernel, mode="wrap")
     def conv_transpose(self, z):
-        return convolve2d(z, self.kernel_flip, mode="same", boundary="symm")
+        return convolve(z, self.kernel_flip, mode="wrap")
     def forward(self, x):
         return sigmoid(self.conv(x), self.alpha, self.c)
     def data_loss(self, x):
@@ -444,8 +445,11 @@ def _already_done(df, keys: dict) -> bool:
     if df is None or len(df)==0: return False
     mask = pd.Series([True]*len(df))
     for k,v in keys.items():
-        if k in df.columns:
-            mask &= (df[k]==v)
+        if k not in df.columns: return False
+        if isinstance(v, float):
+            mask &= (df[k] - v).abs() < 1e-9
+        else:
+            mask &= (df[k] == v)
     return bool(mask.any())
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -576,10 +580,10 @@ class TwoLayerProblem:
         self.y=target.astype(float); self.k1=k1; self.k2=k2
         self.kf1=np.flipud(np.fliplr(k1)); self.kf2=np.flipud(np.fliplr(k2))
         self.alpha=alpha; self.c=c
-    def _c1(self,x): return convolve2d(x,self.k1,mode="same",boundary="symm")
-    def _c1T(self,z): return convolve2d(z,self.kf1,mode="same",boundary="symm")
-    def _c2(self,x): return convolve2d(x,self.k2,mode="same",boundary="symm")
-    def _c2T(self,z): return convolve2d(z,self.kf2,mode="same",boundary="symm")
+    def _c1(self,x): return convolve(x,self.k1,mode="wrap")
+    def _c1T(self,z): return convolve(z,self.kf1,mode="wrap")
+    def _c2(self,x): return convolve(x,self.k2,mode="wrap")
+    def _c2T(self,z): return convolve(z,self.kf2,mode="wrap")
     def forward(self,x):
         h1=sigmoid(self._c1(x),self.alpha,self.c)
         return sigmoid(self._c2(h1),self.alpha,self.c)
@@ -880,7 +884,9 @@ def ext_a_fisher_cramer_rao(alpha_df):
     iou_s=grp["std"].fillna(0.01).values; n=grp["count"].values
 
     popt,pcov=curve_fit(_sig_model,alphas_arr,iou_m,
-                         p0=[iou_m.max(),iou_m.min(),10.,3.],maxfev=10000)
+                         p0=[max(iou_m.max(),0.5), max(iou_m.min(),0.0), 11.7, 3.0],
+                         bounds=([0.3, -0.05, 0.5, 0.1], [1.1, 0.6, 60.0, 20.0]),
+                         maxfev=50000)
     sigma2=(iou_s**2)/n; sigma2=np.maximum(sigma2,1e-8)
     I=np.zeros((4,4))
     for k,a in enumerate(alphas_arr):
@@ -1727,24 +1733,30 @@ def run_effective_rank_sweep():
             prob = p["problem"]; xf = p["x_final"]
             ax_ = prob.conv(xf); s_ = sigmoid(ax_, alpha_val, 0.5)
             w = np.abs(sigmoid_prime_from_output(s_, alpha_val))
-            n = xf.size; K_EIG = min(40, n-2)
+            n = xf.size; K_EIG = min(400, n - 2)
             def _mv(v):
                 return prob.conv_transpose(w*prob.conv(v.reshape(prob.image_shape))).reshape(-1)
             M = LinearOperator((n,n), matvec=_mv, dtype=float)
             rng2 = np.random.default_rng(seed)
             try:
                 evs = eigsh(M, k=K_EIG, which="LM", v0=rng2.normal(size=n),
-                            return_eigenvectors=False, tol=1e-3)
+                            return_eigenvectors=False, tol=1e-4)
                 evs = np.sort(np.abs(evs))[::-1]
             except Exception:
-                evs = np.zeros(K_EIG)
-            lam_max = evs[0] if evs[0]>0 else 1e-10
-            eff_rank = int(np.sum(evs > 0.01*lam_max))
-            rows.append({"alpha":alpha_val,"seed":seed,"effective_rank":eff_rank,
-                          "lam_max":float(lam_max),
+                evs = np.array([1e-10])
+            # Entropy-based effective rank (continuous, no truncation artefact)
+            evs_pos = evs[evs > 1e-12 * (evs[0] + 1e-30)]
+            p_i = evs_pos / (evs_pos.sum() + 1e-30)
+            eff_rank = float(np.exp(-np.sum(p_i * np.log(p_i + 1e-300))))
+            lam_max = float(evs[0]) if evs[0] > 0 else 1e-10
+            # Also track threshold-based count for comparison
+            thresh_rank = int(np.sum(evs > 0.01 * lam_max))
+            rows.append({"alpha":alpha_val,"seed":seed,
+                          "effective_rank":eff_rank,"thresh_rank":thresh_rank,
+                          "lam_max":lam_max,
                           "loss_final":p["summary"]["loss_final"],
                           "output_iou_final":p["summary"]["output_iou_final"]})
-            print(f"  alpha={alpha_val} seed={seed}: eff_rank={eff_rank}")
+            print(f"  alpha={alpha_val} seed={seed}: eff_rank(entropy)={eff_rank:.1f}  thresh_rank={thresh_rank}")
     if rows: append_csv(rows, "effective_rank_vs_alpha.csv")
     else: print("[skip] effective_rank_vs_alpha.csv already complete")
     df = load_csv("effective_rank_vs_alpha.csv")
@@ -1753,8 +1765,8 @@ def run_effective_rank_sweep():
         fig, ax = plt.subplots(figsize=(7,5))
         ax.errorbar(grp["alpha"], grp["mean"], yerr=grp["std"],
                     marker="o", capsize=4, lw=2, color="#d62728")
-        ax.set_xlabel("Sigmoid stiffness alpha"); ax.set_ylabel("Effective rank (top-40, 1% threshold)")
-        ax.set_title("Gauss-Newton effective rank collapses with alpha\n(dimensional collapse of optimization landscape)")
+        ax.set_xlabel("Sigmoid stiffness alpha"); ax.set_ylabel("Effective rank (entropy-based)")
+        ax.set_title("Gauss-Newton effective rank collapses with alpha\n(entropy rank — no truncation artefact)")
         ax.grid(True, linestyle="--", alpha=0.4); plt.tight_layout()
         save_fig("effective_rank_vs_alpha.png")
     return df
