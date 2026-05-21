@@ -159,6 +159,14 @@ def cohens_d(a, b):
     diff = np.asarray(a)-np.asarray(b)
     return float(diff.mean()/(diff.std(ddof=1)+1e-12))
 
+def wilcoxon_pairwise(a, b):
+    from scipy.stats import wilcoxon
+    try:
+        stat, pvalue = wilcoxon(np.asarray(a), np.asarray(b), alternative="two-sided")
+    except Exception:
+        stat, pvalue = 0.0, 1.0
+    return {"statistic": float(stat), "pvalue": float(pvalue)}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SECTION 2 — KERNELS & TARGETS
 # ══════════════════════════════════════════════════════════════════════════════
