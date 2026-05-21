@@ -34,7 +34,7 @@ export FIXED_CNN_ROOT_DIR=$HOME/gradient_gate_outputs
 # ── Copy script to scratch (faster I/O for figure writes) ─────────────────────
 SCRATCH=${RCAC_SCRATCH:-/scratch/gilbreth/$USER}/$SLURM_JOB_ID
 mkdir -p $SCRATCH
-cp $HOME/run_experiments.py $SCRATCH/
+cp $SLURM_SUBMIT_DIR/run_experiments.py $SCRATCH/
 cd $SCRATCH
 
 echo "Working dir  : $SCRATCH"
