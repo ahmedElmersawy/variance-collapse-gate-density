@@ -31,9 +31,10 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # Output root — writes figures/ csv/ arrays/ here
 export FIXED_CNN_ROOT_DIR=$HOME/gradient_gate_outputs
 
-# ── Ensure output directories exist (preserve all existing CSVs) ──────────────
+# ── Clear all CSVs: c changed from 0.5 to 0.0 — all results invalid ───────────
+rm -rf $FIXED_CNN_ROOT_DIR/csv $FIXED_CNN_ROOT_DIR/figures $FIXED_CNN_ROOT_DIR/arrays
 mkdir -p $FIXED_CNN_ROOT_DIR/csv $FIXED_CNN_ROOT_DIR/figures $FIXED_CNN_ROOT_DIR/arrays
-echo "Output dirs ready. Checkpoint system reruns only missing experiments."
+echo "All CSVs cleared (c=0.5→0.0 change). Regenerating from scratch."
 
 # ── Copy script to scratch (faster I/O for figure writes) ─────────────────────
 SCRATCH=${RCAC_SCRATCH:-/scratch/gilbreth/$USER}/$SLURM_JOB_ID
