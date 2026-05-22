@@ -232,7 +232,7 @@ TARGETS_64 = get_targets(64, 64)
 @dataclass
 class ProblemConfig:
     image_shape: Tuple[int,int] = (64,64)
-    alpha: float = 10.0; c: float = 0.5
+    alpha: float = 10.0; c: float = 0.0
     kernel_name: str = "sobel_x"; target_name: str = "checkerboard"
     activation: str = "sigmoid"; noise_std: float = 0.0
     tv_lambda: float = 0.0; tikhonov_lambda: float = 0.0
@@ -388,7 +388,7 @@ def init_x(shape, mode="random", seed=0, target=None):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_single_experiment(image_shape=SHAPE, kernel_name="sobel_x",
-                          target_name="checkerboard", alpha=10.0, c=0.5,
+                          target_name="checkerboard", alpha=10.0, c=0.0,
                           activation="sigmoid", noise_std=0.0,
                           tv_lambda=0.0, tikhonov_lambda=0.0,
                           optimizer_name="pgd", init_mode="random",
