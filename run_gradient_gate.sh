@@ -31,9 +31,24 @@ export NUMEXPR_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # Output root — writes figures/ csv/ arrays/ here
 export FIXED_CNN_ROOT_DIR=$HOME/gradient_gate_outputs
 
-# ── Ensure output directories exist (DO NOT delete existing results) ──────────
+# ── Ensure output directories exist ───────────────────────────────────────────
 mkdir -p $FIXED_CNN_ROOT_DIR/csv $FIXED_CNN_ROOT_DIR/figures $FIXED_CNN_ROOT_DIR/arrays
-echo "Output dirs ready. Existing CSVs preserved — checkpoint system handles reruns."
+
+# Delete only CSVs that depend on the IoU metric (output_iou = iou(x, binary) fix).
+# Keep: stable_rank, effective_rank, nullspace, depth_scaling, eigenvalue_spectra,
+#        convergence_rate, twolayer (will regenerate), optimizer_statistics.
+CSV=$FIXED_CNN_ROOT_DIR/csv
+for f in alpha_sweep_results threshold_sweep_results kernel_sweep_results \
+          target_sweep_results oracle_ablation activation_comparison \
+          noise_robustness grad_sparsity_all_optimizers phase_diagram_alpha_x_kernel \
+          curvature_alpha_sweep scale_experiment twolayer_vs_onelayer \
+          gradient_leakage_dense gradient_leakage \
+          learned_weights learned_weights_wilcoxon \
+          phase_transition_fit fisher_cramer_rao finite_size_scaling \
+          per_kernel_alpha_star mutual_information_proxy; do
+    rm -f $CSV/${f}.csv
+done
+echo "Deleted metric-dependent CSVs. Preserved rank/depth/convergence results."
 
 # ── Copy script to scratch (faster I/O for figure writes) ─────────────────────
 SCRATCH=${RCAC_SCRATCH:-/scratch/gilbreth/$USER}/$SLURM_JOB_ID
