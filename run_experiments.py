@@ -900,9 +900,11 @@ def ext_a_fisher_cramer_rao(alpha_df):
     alphas_arr=grp["alpha"].values; iou_m=grp["mean"].values
     iou_s=grp["std"].fillna(0.01).values; n=grp["count"].values
 
+    iou_min_p0 = float(np.clip(iou_m.min(), 0.0, 0.98))
+    iou_max_p0 = float(np.clip(iou_m.max(), iou_min_p0+0.01, 1.09))
     popt,pcov=curve_fit(_sig_model,alphas_arr,iou_m,
-                         p0=[max(iou_m.max(),0.5), max(iou_m.min(),0.0), 11.7, 3.0],
-                         bounds=([0.3, -0.05, 0.5, 0.1], [1.1, 0.6, 60.0, 20.0]),
+                         p0=[iou_max_p0, iou_min_p0, 11.7, 3.0],
+                         bounds=([0.3, -0.05, 0.5, 0.1], [1.1, 0.99, 60.0, 20.0]),
                          maxfev=50000)
     sigma2=(iou_s**2)/n; sigma2=np.maximum(sigma2,1e-8)
     I=np.zeros((4,4))
@@ -1494,9 +1496,10 @@ def plot_phase_transition_fit(df):
     grp=sub.groupby("alpha")["output_iou_final"].agg(["mean","std","count"]).reset_index()
     def _sig(a,iou_max,iou_min,a_star,delta):
         return iou_min+(iou_max-iou_min)/(1.+np.exp((a-a_star)/(delta+1e-8)))
+    mn=float(grp["mean"].values.min()); mx=float(grp["mean"].values.max())
     popt,_=curve_fit(_sig,grp["alpha"].values,grp["mean"].values,
-                      p0=[max(grp["mean"].max(),0.5), max(grp["mean"].min(),0.0), 11.7, 3.0],
-                      bounds=([0.3,-0.05,0.5,0.1],[1.1,0.6,60.0,20.0]),
+                      p0=[np.clip(mx,0.5,1.09), np.clip(mn,0.0,0.98), 11.7, 3.0],
+                      bounds=([0.3,-0.05,0.5,0.1],[1.1,0.99,60.0,20.0]),
                       maxfev=50000)
     a_dense=np.linspace(grp["alpha"].min(),grp["alpha"].max(),300)
     fig,ax=plt.subplots(figsize=(7,5))
