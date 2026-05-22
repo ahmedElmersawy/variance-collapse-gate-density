@@ -296,9 +296,7 @@ class FixedCNNInverseProblem:
                 "grad_norm": self.grad_norm(x),
                 "output_mse": float(np.mean((fx-self.y)**2)),
                 "output_binary_acc": float(np.mean(((fx>=0.5)==(self.y>=0.5)))),
-                # Reconstruction quality: does x_final look like the binary target?
-                # iou(x>0.5, y) measures input recovery, not output matching.
-                "output_iou": iou_score(x, self.y),
+                "output_iou": iou_score(fx, self.y),
                 "input_psnr_vs_target": psnr(x, x_star),
                 "input_ssim_vs_target": ssim_fast(x, x_star),
                 "active_grad_fraction": float(np.mean(gate>0.01)),
@@ -642,14 +640,14 @@ def run_twolayer_sweep():
             xf1=p1["x_final"]
             s1=sigmoid(p1["problem"].conv(xf1),alpha,0.5)
             rows.append({"alpha":alpha,"seed":seed,"layers":1,
-                          "iou_final":p1["summary"]["output_iou_final"],  # iou(x1, binary)
+                          "iou_final":iou_score(p1["problem"].forward(xf1),target),
                           "loss_final":p1["problem"].loss(xf1),
                           "frac_active":float(np.mean(np.abs(sigmoid_prime(s1,alpha))>0.01))})
             # 2-layer
             prob2=TwoLayerProblem(target,k1,k2,alpha)
             xf2=_run_adam_raw(prob2,x0.copy(),steps=STEPS)
             rows.append({"alpha":alpha,"seed":seed,"layers":2,
-                          "iou_final":iou_score(xf2,target),  # iou(x2, binary)
+                          "iou_final":iou_score(prob2.forward(xf2),target),
                           "loss_final":prob2.loss(xf2),
                           "frac_active":prob2.active_frac(xf2)})
             print(f"[2L] alpha={alpha} seed={seed}: "
@@ -1318,7 +1316,7 @@ def ext_f_learned_weights():
                 x=np.clip(x-lr*(m/(1-b1**t))/(np.sqrt(v/(1-b2**t))+eps),0.,1.)
             z=_apply(x,K); h=_sig2d(z,alpha); gate=sigmoid_prime(h,alpha)
             af=float(np.mean(np.abs(gate)>0.01))
-            return iou_score(x,target2d), af  # iou(x_final, binary_target) — consistent with main sweep
+            return iou_score(h,target2d), af
 
         rows=[]
         for alpha in ALPHAS:
