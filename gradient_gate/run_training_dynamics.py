@@ -28,8 +28,14 @@ import torchvision.transforms as T
 from gradient_gate.architectures import build_model as build_real_model
 from gradient_gate.cifar_models import CIFAR_NATIVE_ARCHS, build_cifar_model
 from gradient_gate.instrumentation import GateInstrumentor
+from gradient_gate.sequence_models import SEQUENCE_NATIVE_ARCHS, build_sequence_model
 
 ARCHS = ("resnet18", "resnet50", "vgg11", "vit_b_16", "convnext_tiny")
+# Architectures that, like the CIFAR-native CNNs, run at native 32x32 and
+# accept the same --activations swap (used for P4's "is the smooth-activation
+# rise CNN-specific?" check) -- everything else (vit_b_16/convnext_tiny) keeps
+# its canonical torchvision form, resized input, and fixed activation.
+ACTIVATION_CONFIGURABLE_ARCHS = CIFAR_NATIVE_ARCHS + SEQUENCE_NATIVE_ARCHS
 DATASETS = ("cifar10", "cifar100")
 CIFAR_MEAN = (0.4914, 0.4822, 0.4465)
 CIFAR_STD = (0.2470, 0.2435, 0.2616)
@@ -41,11 +47,13 @@ CSV_DIR = os.path.join(os.path.dirname(__file__), "..", "gradient_gate_outputs",
 def build_model_for(arch, num_classes, activation="relu"):
     if arch in CIFAR_NATIVE_ARCHS:
         return build_cifar_model(arch, num_classes=num_classes, activation=activation)
+    if arch in SEQUENCE_NATIVE_ARCHS:
+        return build_sequence_model(arch, num_classes=num_classes, activation=activation)
     return build_real_model(arch, num_classes=num_classes)
 
 
 def get_dataloaders(dataset, arch, batch_size, data_root, num_workers=4):
-    resize_224 = arch not in CIFAR_NATIVE_ARCHS
+    resize_224 = arch not in ACTIVATION_CONFIGURABLE_ARCHS
     train_tf = [T.RandomCrop(32, padding=4), T.RandomHorizontalFlip()]
     test_tf = []
     if resize_224:
@@ -222,7 +230,7 @@ def main():
 
     for dataset in args.datasets:
         for arch in args.archs:
-            activations = args.activations if arch in CIFAR_NATIVE_ARCHS else ["relu"]
+            activations = args.activations if arch in ACTIVATION_CONFIGURABLE_ARCHS else ["relu"]
             for activation in activations:
                 for seed in args.seeds:
                     if already_done(args.out, arch, dataset, seed, args.epochs - 1, activation, args.optimizer):
@@ -233,7 +241,7 @@ def main():
                     # vit_b_16/convnext_tiny at 224 need a smaller batch to fit
                     # alongside other jobs on a shared GPU; halve batch (and
                     # correspondingly halve lr, linear scaling rule) for those.
-                    bs = args.batch_size if arch in CIFAR_NATIVE_ARCHS else max(32, args.batch_size // 4)
+                    bs = args.batch_size if arch in ACTIVATION_CONFIGURABLE_ARCHS else max(32, args.batch_size // 4)
                     lr = args.lr if bs == args.batch_size else args.lr * bs / args.batch_size
                     run_one(arch, dataset, seed, args.epochs, bs, lr, args.data_root, args.out, device,
                             args.num_workers, activation=activation, optimizer=args.optimizer)

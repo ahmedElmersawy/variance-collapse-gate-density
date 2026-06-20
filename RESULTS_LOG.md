@@ -114,3 +114,79 @@ All three jobs (11061122, 11061123, 11061124) submitted to the a100-80gb
 partition (confirmed via `sinfo`: TIMELIMIT=infinite, so no cluster-imposed
 cap forced these budgets down — they're sized from this project's own prior
 job runtimes instead).
+
+### Early P2 result, from partial real data (relu, 3 seeds, complete through epoch 24)
+
+Wrote `gradient_gate/analyze_channel_mechanism.py` and ran it against
+`channel_mechanism.csv` while job 11061124 continued in the background.
+**Caught a real design flaw in the analysis before trusting it**: my first
+version's primary test used epoch-0 margin to predict the epoch-0-to-24
+active_frac delta (a lagged-predictive claim) and got a weak,
+near-chance result for relu (frac_sign_match 0.41-0.53 across 3 seeds) --
+but that is NOT the mechanism's actual claim. The mechanism
+(theory_variance_compression_mechanism.md) claims an INSTANTANEOUS
+relationship: margin(t) determines active_frac(t) at the same t, and mu
+itself drifts over training as part of the mechanism, not separately from
+it. ReLU's z_low sits at ~0 (the thinnest possible margin of any
+activation tested), so a channel's epoch-0 sign is a poor predictor of
+where its also-drifting mu ends up 24 epochs later -- that is a property
+of using a stale single-epoch predictor, not evidence against the
+mechanism. Re-ran with the correct, direct test (per channel, correlate
+margin(epoch) with active_frac(epoch) across all 5 logged epochs): for
+relu, 3/3 seeds show frac_positive_corr in [0.84, 0.89] (mean correlation
++0.57 to +0.63) -- a strong, genuine per-channel confirmation, recovered
+once the test matched the actual claim. Demoted the lagged test to
+secondary/transparency-only in the script; kept both in the output CSV.
+Will re-run the full analysis (relu+gelu+silu+mish) once job 11061124
+completes, before drawing any final per-activation conclusion.
+
+## P3/P4 setup
+
+**P3** (`gradient_gate/run_tinyimagenet_dynamics.py`): downloaded the
+standard public Tiny-ImageNet-200 (cs231n.stanford.edu, 64x64, 200
+classes, 100k train / 10k val) into `data/tiny-imagenet-200/` -- noted in
+passing that another user's copy exists on shared `/scratch`, deliberately
+not used (not mine to read). Custom `TinyImageNetDataset` (ImageFolder
+doesn't fit the val/ layout, which needs `val_annotations.txt`). Reuses
+`cifar_resnet18`'s existing 3x3-stride-1-stem unmodified -- already
+"64x64-appropriate" per its own docstring's logic (strides (1,2,2,2) take
+64x64 to an 8x8 feature map before the global pool, not collapsed). Smoke
+tested: dataset loads (100000/10000 samples, 200 distinct labels
+confirmed), one real forward+backward pass through `cifar_resnet18(num_classes=200)`
+on a real batch succeeds (loss ~5.4 ~= ln(200), as expected at init).
+Split across two jobs (relu+gelu / silu+mish) writing to separate CSVs to
+avoid a header-write race, since both could start in the same instant --
+**jobs 11061327, 11061328**, 14h budget each (Tiny-ImageNet is ~2x the
+images and ~4x the pixels/image of CIFAR, so budgeted above the CIFAR
+ablation's per-run cost with margin).
+
+**P4** (`gradient_gate/sequence_models.py`): new CIFAR-native
+(32x32), activation-configurable MLP-Mixer (8 blocks, ~1.13M params) and
+small Transformer-Encoder (6 blocks, 4 heads, ~0.81M params), to test
+whether the smooth-activation gate-density rise is CNN-specific. Built
+with explicit `act_layer()` submodules rather than
+`nn.TransformerEncoderLayer` -- the latter's activation, when given a
+callable, is a plain function reference called inside `forward()`, not a
+registered submodule, so it would be invisible to
+`GateInstrumentor`'s `named_modules()`-based hook attachment; verified
+this reasoning would matter before writing custom blocks, rather than
+discovering it after a wasted job. Wired into
+`run_training_dynamics.py` via a new `ACTIVATION_CONFIGURABLE_ARCHS =
+CIFAR_NATIVE_ARCHS + SEQUENCE_NATIVE_ARCHS` (replaces the old
+`CIFAR_NATIVE_ARCHS`-only checks for the resize-to-224 decision, the
+per-arch activation-list dispatch, and the batch-size-halving logic, so
+the existing CNN/ViT/ConvNeXt behavior is provably unchanged -- those
+archs aren't in the new tuple's added members). Smoke-tested: a
+synthetic-batch GateInstrumentor pass over both architectures x all 4
+activations confirms correct layer counts (16 = 8 blocks x 2
+activations/block for the Mixer; 6 = 6 blocks x 1 activation/block for the
+Transformer) and sane active_frac at random init (~0.50 for relu, ~0.98-0.99
+for gelu/silu/mish, consistent with the rest of this project's
+random-init baseline pattern). **Job 11061548**, both datasets, all 4
+activations, 3 seeds, 25 epochs, 10h budget.
+
+All three new jobs (11061327, 11061328, 11061548) were submitted but are
+sitting in queue (PD) as of this writing -- `sinfo` shows no idle
+a100-80gb nodes right now (30 mixed-, 15 mixed, 10 allocated, 2 drained);
+this is normal cluster contention, not a problem with the jobs themselves.
+Will start automatically once a node frees up.
