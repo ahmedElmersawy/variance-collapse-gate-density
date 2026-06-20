@@ -1,0 +1,1292 @@
+\documentclass{article}
+
+% ── Layout ────────────────────────────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[
+  paperwidth=8.5in, paperheight=11in,
+  left=1.5in, right=1.5in,
+  top=1in, bottom=1in,
+  includeheadfoot
+]{geometry}
+\usepackage{times}
+\usepackage{amsthm,amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage[final]{graphicx}
+\graphicspath{{figures/}}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage[colorlinks=true,urlcolor=blue,linkcolor=black,citecolor=black]{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{remark}[theorem]{Remark}
+
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\paragraph}[runin]{\normalsize\bfseries}{}{0em}{}[.]
+\titlespacing{\section}{0pt}{12pt plus 4pt minus 2pt}{6pt plus 2pt}
+\titlespacing{\subsection}{0pt}{10pt plus 3pt minus 2pt}{4pt plus 2pt}
+\titlespacing{\paragraph}{0pt}{6pt plus 2pt minus 2pt}{0.5em}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+\raggedbottom
+\setlength{\fboxsep}{0pt}
+
+% ─────────────────────────────────────────────────────────────────────────────
+\title{\textbf{Hard Gates Collapse, Soft Gates Saturate:\\
+Two Regimes of Gradient Flow in Trained Networks}}
+
+\author{
+  blind peer \\
+  School of Electrical and Computer Engineering \\
+  Purdue University \\
+  \texttt{blindpeer@purdue.edu}
+}
+
+\date{}
+\begin{document}
+\maketitle
+
+% =============================================================================
+\begin{abstract}
+% =============================================================================
+Dying ReLU describes individual units going permanently silent during
+training---a unit-level pathology to fix. We study a different, comparative
+question: across ordinary, successful training, does the \emph{fraction} of
+gradient-carrying units behave the same way in every architecture, or does it
+depend on the activation function's shape? Using a hook-based method that
+recovers a network's exact pointwise gradient gate $\Gamma(x)=|f'(x)|$
+without modifying the architecture, we find it does not generalize. In three
+independent ReLU-based architectures (ResNet-18, ResNet-50, VGG-11) across
+two datasets, gate density (active-gradient-fraction) declines monotonically
+during training in every one of 18 independent runs (sign-test
+$p=3.8\times10^{-6}$); in the GELU-based ViT-B/16 it rises in 4 of 4 runs.
+Holding a CNN backbone exactly fixed and varying only the activation, GELU,
+SiLU, and Mish all reproduce ViT-B/16's rising direction on the same
+ResNet-18/VGG-11 skeleton (48 of 48 independent runs, $p=2.44\times10^{-4}$
+per activation), ruling out a CNN-versus-Transformer confound, and the
+direction survives replacing BatchNorm with GroupNorm (24 runs) and is
+unchanged across five gate-density thresholds spanning two orders of
+magnitude (zero sign flips in 60 checks). We then derive, rather than only
+describe, why: BatchNorm's learned scale shrinks under weight decay and a
+cosine learning-rate schedule (an established consequence of training
+scale-invariant layers), collapsing the post-normalization pre-activation
+variance; whether a shrinking-variance gate converges toward 0 or 1 depends
+only on a fixed, activation-specific threshold-crossing point $z_{\rm low}$,
+computed once with no training involved. A 13-point smoothness sweep---whose
+Softplus($\beta$) family has a derivative \emph{exactly} equal to the
+logistic sigmoid used by the project's original synthetic theory---confirms
+a monotonic dose-response (Spearman $\rho=-0.71$, $p=6\times10^{-7}$,
+seed-level), and a dedicated validation experiment confirms the mechanism's
+central, previously-untested assumption directly: the pre-activation mean
+drifts to a common small negative band across nine very different
+activation functions, and comparing this shared drift to each activation's
+independently-computed $z_{\rm low}$ correctly predicts the observed
+direction in 9 of 9 cases, including correctly flagging which case (Softplus
+at $\beta=50$, sitting within $0.004$ of the critical boundary) should be
+the least reliable---which it empirically is. A direct per-channel test
+(3{,}904 channels per run, rather than one pooled population statistic)
+confirms the same relationship using a $\sigma$-normalized
+threshold-distance variable (12 of 12 activation$\times$seed cells,
+$p=2.44\times10^{-4}$), and reveals two distinct routes to the same
+threshold-crossing logic: $\mu$-drift for ReLU, whose threshold sits at the
+live center of its channels' distributions, and $\sigma$-shrinkage for
+GELU/SiLU/Mish, whose threshold sits far in the tail. We further test, and
+do not assume, generalization: the direction split replicates exactly under
+Adam (48 of 48 runs) and on Tiny-ImageNet-200, and the smooth-activation
+rise alone replicates on two non-convolutional, LayerNorm-only
+architectures (MLP-Mixer, Transformer-Encoder)---but the split collapses
+under AdamW's decoupled weight decay (all four activations decline), and
+the ReLU-specific decline, unlike the smooth-activation rise, does not
+generalize beyond convolutional architectures. We report these as genuine
+scope boundaries rather than omitting them. We also report two honest,
+non-positive findings rather than omitting them: representational effective
+rank rises in every condition tested regardless of activation (114$+$ runs),
+giving it no power to discriminate anything in this paper, and using gate
+density to guide channel pruning is statistically equivalent to magnitude
+pruning for ReLU but significantly \emph{worse} than magnitude pruning for
+every smooth activation tested ($p<2\times10^{-4}$). A final, exploratory
+probe finds gate stiffness reduces the convergence probability of the iDLG
+gradient-inversion attack but provides no protection against the stronger,
+scale-invariant Inverting Gradients attack---an attack-dependent effect we do
+not claim extends to the real architectures studied above. We report this as
+a bounded, mechanistically-explained, activation-class-dependent phenomenon,
+not a universal theory of gradient dynamics or trainability.
+Code: \url{https://github.com/ahmedElmersawy/Optimization-Landscape-CNN}.
+\end{abstract}
+
+% =============================================================================
+\section{Introduction}
+% =============================================================================
+
+Whether a neural network can learn depends on which fraction of its
+computation graph carries gradient signal backward at all; the local
+derivative of each activation function acts as a gate that determines this
+for every unit, every layer, every step. It has been known for over a
+decade that, for ReLU networks specifically, this gate can close
+permanently for individual units during training---the dying-ReLU
+phenomenon~\cite{lu2019dying}, familiar since ReLU's original adoption and
+accompanied by a long line of remedies (Leaky ReLU, careful initialization,
+normalization). \textbf{This paper is not about that observation, and we
+state so explicitly at the outset.} We do not claim to discover that ReLU
+units lose gradient-carrying capacity during training, and we do not treat
+such a decline as a pathology to diagnose or repair. We ask a narrower,
+comparative question that a ReLU-specific literature cannot ask by
+construction: does the \emph{fraction} of gradient-carrying units change in
+the same direction across different activation functions during ordinary
+training, or is the direction itself a property of the activation's shape?
+
+We call the fraction of gradient-carrying units, evaluated on a fixed batch
+at a given point in training, \emph{gate density}, and it differs from the
+traditional dead-neuron framing in three respects. First, it is continuous,
+not binary: rather than labeling a unit permanently dead or alive, we
+compute the fraction of units whose local gate magnitude
+$\Gamma(x)=|f'(x)|$ exceeds a small threshold, re-measured fresh at every
+epoch. Second, it is descriptive, not diagnostic: we make no claim that a
+network with falling gate density is failing---every network we study is
+learning successfully throughout, with test accuracy rising monotonically
+alongside the decline we measure. Third, it is defined for \emph{any}
+differentiable activation, not only piecewise-linear ones: the dead-neuron
+vocabulary presumes a literal zero region that ReLU has and GELU does not,
+so a framing built around ``death'' cannot even be applied to a smooth
+activation, let alone compared against ReLU on equal terms.
+
+Measuring $\Gamma(x)$ in general requires knowing an activation's
+closed-form derivative in advance or modifying the network to expose it,
+which is why empirical study of gating dynamics has historically been
+confined to ReLU. We remove this requirement: for any elementwise
+activation $y=f(x)$, a backward hook's \texttt{grad\_input} is exactly
+\texttt{grad\_output} times $f'(x)$, so their ratio recovers the local gate
+exactly, for any $f$, on any unmodified architecture (Section~\ref{sec:method}).
+
+Tracking gate density at every epoch of standard supervised training on
+CIFAR-10 and CIFAR-100, we find that its direction of change is not shared
+across activation families. In three independent ReLU-based architectures,
+gate density falls consistently as test accuracy rises---a direction
+consistent with, though far more broadly replicated than, what the
+dying-ReLU and activation-sparsity literatures have separately reported for
+ReLU alone. In the GELU-based ViT-B/16, gate density rises instead. We then
+ask, and answer, the question this contrast immediately raises: is this
+about the activation function, or about CNNs versus Transformers? Holding a
+CNN architecture exactly fixed and swapping only the activation
+(Section~\ref{sec:dynamics}) shows it is the activation. We further rule out
+BatchNorm as a necessary condition (Section~\ref{sec:dynamics}) and show the
+direction is robust to the measurement threshold across two orders of
+magnitude (Section~\ref{sec:dynamics}).
+
+Unlike most papers reporting this kind of phenomenon, we then derive why
+(Section~\ref{sec:mechanism}), not only that. BatchNorm's learned scale
+shrinks during training as a consequence of training a scale-invariant
+layer under weight decay with a decaying learning rate; this collapses the
+pre-activation variance for every activation alike. Whether a
+shrinking-variance gate concentrates toward 0 or 1 depends only on a fixed,
+activation-specific threshold-crossing point, computable with no training
+at all. We test this mechanism's central empirical assumption directly
+(rather than assuming it) and find it holds, and we test the mechanism's
+prediction across a 13-point continuous smoothness sweep, in which one
+activation family's derivative is mathematically identical to this
+project's original synthetic gate formalism. We then verify the mechanism
+at the level of the individual channel rather than only the population
+(Section~\ref{sec:channel_mechanism}), and test generalization deliberately
+rather than assuming it (Sections~\ref{sec:optimizer}--\ref{sec:generalization}):
+the direction split survives Adam and a non-CIFAR, 200-class dataset, and
+the smooth-activation rise alone survives two non-convolutional,
+LayerNorm-only architectures, but the split collapses under AdamW and the
+ReLU-specific decline does not generalize beyond CNNs---scope boundaries we
+report directly rather than discover after submission.
+
+Finally, we report two findings exactly as the data shows them, including
+where that complicates a clean narrative: representational rank rises in
+every condition we tested regardless of activation, which means it cannot
+distinguish anything this paper argues for and is reported as a null
+result, not a contribution; and using gate density to guide pruning helps
+for ReLU but actively misleads for every smooth activation tested. An
+exploratory privacy probe closes the paper, scoped explicitly as not
+extending to the architectures studied elsewhere.
+
+\paragraph{Contributions}
+\begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=2pt]
+\item \textbf{A general, architecture-agnostic method for measuring the
+  exact pointwise gradient gate} of any elementwise activation without
+  modifying the network, validated against the known ReLU-at-initialization
+  baseline across three architectures and 20 seeds.
+\item \textbf{Evidence that gate density's direction of change during
+  training is activation-class-dependent, not architecture-dependent, and
+  is robust to threshold choice.} Consistent decline across 18 independent
+  training runs of three ReLU architectures on two datasets; a consistent
+  rise across 4 independent runs of GELU-based ViT-B/16; confirmation via an
+  architecture-matched ablation (48 independent runs, GELU/SiLU/Mish all
+  reproducing the rise on a CNN backbone); confirmation that BatchNorm is
+  not necessary (24 runs, BatchNorm vs.\ GroupNorm); and zero sign flips
+  across five thresholds spanning two orders of magnitude (60 checks).
+\item \textbf{A derived, tested mechanism}, not only a description: training
+  shrinks BatchNorm's scale (an established consequence of weight decay on
+  scale-invariant layers under a decaying learning rate), collapsing
+  pre-activation variance for every activation; the resulting direction is
+  governed by each activation's fixed threshold-crossing location
+  $z_{\rm low}$. We verify the mechanism's key assumption---a shared
+  pre-activation mean drift across very different activations---directly,
+  and the resulting sign prediction is correct in 9 of 9 tested
+  conditions, correctly anticipating which condition (closest to the
+  critical boundary) should be least reliable.
+\item \textbf{Direct per-channel verification of the mechanism}, across
+  3{,}904 channels per run rather than one pooled population statistic,
+  using a $\sigma$-normalized threshold-distance variable (12 of 12
+  activation$\times$seed cells, $p=2.44\times10^{-4}$); this reveals two
+  distinct routes to the same threshold-crossing logic depending on each
+  activation's margin to its threshold.
+\item \textbf{Generalization tested, not assumed, along three axes}:
+  optimizer (the split replicates exactly under Adam, 48 of 48 runs, but
+  collapses under AdamW's decoupled weight decay, 48 of 48 runs all
+  declining instead), scale (ReLU's decline and the smooth-activation rise
+  both replicate on Tiny-ImageNet-200), and architecture family (the
+  smooth-activation rise replicates on two non-convolutional, LayerNorm-only
+  architectures, but the ReLU decline and the separate effective-rank-rise
+  observation do not). We report all three as genuine, characterized scope
+  boundaries rather than omitting the checks that did not fully generalize.
+\item \textbf{Two honestly-reported non-findings}: representational
+  effective rank rises in every condition tested (114$+$ runs) regardless of
+  activation, architecture, dataset, or threshold, giving it no
+  discriminating power; and gate-density-guided pruning is statistically
+  equivalent to magnitude pruning for ReLU but significantly worse for
+  every smooth activation tested.
+\item \textbf{An exploratory finding} that gate density's relationship to
+  gradient-inversion attack convergence is attack-dependent---protective
+  against iDLG, absent against the stronger Inverting Gradients
+  attack---demonstrated in a controlled setting and not claimed to extend to
+  the architectures above.
+\end{enumerate}
+
+% =============================================================================
+\section{Related Work}
+% =============================================================================
+
+\paragraph{Dying ReLU~\cite{lu2019dying}.} Documents that individual ReLU
+units can become permanently inactive during training, treated as a
+pathology with established remedies. We measure a continuous,
+population-level statistic that need not imply permanent death, find it
+co-occurs with \emph{rising} accuracy rather than failure, and generalize
+the question to activation functions for which ``death'' is not even
+well-defined.
+
+\paragraph{Activation sparsity.} Trained ReLU networks are known to develop
+increasing forward-pass activation sparsity~\cite{glorot2010understanding}.
+We measure backward-pass gate sparsity, which coincides with forward
+sparsity for ReLU but not for smooth activations, and track it as an
+epoch-resolved trajectory rather than a post-training snapshot.
+
+\paragraph{Lottery Ticket Hypothesis and neural pruning.} The Lottery
+Ticket Hypothesis~\cite{frankle2019lottery} identifies sparse,
+separately-trainable subnetworks via iterative weight-level pruning and
+rewinding. Our gate-density statistic is a continuous, input-dependent,
+non-interventional quantity, not a static weight mask, and we make no
+prunability claim a priori---Section~\ref{sec:pruning} tests one directly
+and reports a negative result for three of four activations.
+
+\paragraph{Rank collapse and Neural Collapse.} Prior work shows
+representation rank collapsing with depth in pure attention
+stacks~\cite{dong2021attention} and within-class feature variability
+collapsing in the terminal phase of training~\cite{papyan2020prevalence}.
+We track a different rank statistic (entropy-based effective rank of
+per-layer activations), at different layers, across the bulk
+(non-terminal) phase of training, and find it \emph{rising}---not a
+contradiction of either prior result, since neither tracks gate density or
+this regime, but a finding we explicitly do not connect to either
+literature beyond noting the vocabulary overlap.
+
+\paragraph{Representation collapse.} In self-supervised learning, encoders
+can collapse to low-dimensional or constant
+outputs~\cite{hua2021feature,jing2022understanding}. Our usage of
+``collapse'' (declining gate density) is unrelated and, on the rank
+dimension specifically, opposite in sign (our measured rank \emph{rises});
+we flag this explicitly to avoid the vocabulary collision misleading a
+reader.
+
+\paragraph{Gradient inversion attacks.} DLG~\cite{zhu2019deep},
+iDLG~\cite{zhao2020idlg}, and Inverting Gradients~\cite{geiping2020inverting}
+are attack methods we reuse unmodified in Section~\ref{sec:privacy}. That
+literature is about attack or defense design; we ask whether an incidental
+property of the victim model predicts attack success, finding the answer
+is attack-dependent.
+
+\paragraph{BatchNorm scale dynamics under weight decay.} Scale-invariant
+layers followed by BatchNorm reach an equilibrium weight norm under SGD
+with weight decay that depends on the learning
+rate~\cite{vanlaarhoven2017l2,hoffer2018norm}. Section~\ref{sec:mechanism}
+applies this to explain why BatchNorm's $\gamma$ shrinks under our cosine
+schedule, rather than re-deriving the result from scratch.
+
+\paragraph{Optimization landscapes and inverse problems.} The synthetic
+phase-transition theory motivating this project's gate vocabulary (Appendix~\ref{app:synthetic})
+builds on loss-landscape visualization~\cite{li2018visualizing}, inverse
+problems in imaging~\cite{ongie2020deep,chan2016plug}, feature
+inversion~\cite{mahendran2015understanding}, and the analogy to phase
+transitions in compressed sensing~\cite{donoho2006compressed}.
+
+% =============================================================================
+\section{Method: Measuring Gradient Gates}
+\label{sec:method}
+% =============================================================================
+
+\subsection{The gate-recovery trick}
+
+For an elementwise activation $y=f(x)$, the chain rule gives, exactly,
+\begin{equation}
+  \texttt{grad\_input} = \texttt{grad\_output}\cdot f'(x).
+\end{equation}
+A backward hook registered on any activation module observes both tensors;
+their elementwise ratio recovers $\Gamma(x)=|f'(x)|$ exactly, for any $f$,
+without knowing its closed form and without modifying the forward pass.
+\textbf{Gate density} at threshold $\theta$ is the fraction of elements
+with $\Gamma(x)>\theta$ on a fixed evaluation batch, re-measured every
+epoch on the \emph{same} batch so that trajectories are not confounded by
+changing inputs.
+
+\subsection{Architectures and validation}
+
+We instrument five architectures: CIFAR-native ResNet-18, ResNet-50, and
+VGG-11 (a standard 3$\times$3-stride-1 stem, no initial max-pool, since the
+canonical ImageNet stem destroys a 32$\times$32 image's resolution in the
+first layer), and canonical (unmodified) ViT-B/16 and ConvNeXt-Tiny via
+torchvision. We validate the method against the only available
+ground truth---ReLU's known $\approx\!50\%$ active-fraction at
+BatchNorm-normalized random initialization---across 20 seeds and three
+architectures: ResNet-18 $0.555\pm$, ResNet-50 $0.529\pm$, VGG-11
+$0.618\pm$ (mean active-fraction at $\theta=0.01$, full distribution in
+Appendix~\ref{app:validation}), matching the theoretical expectation.
+
+\subsection{Architecture-fixed activation ablation}
+\label{sec:ablation_method}
+
+To separate activation effects from architecture effects
+(Section~\ref{sec:dynamics}), we hold the ResNet-18 and VGG-11 skeletons
+exactly fixed---identical depth, width, stem, BatchNorm placement, and
+parameter count, verified identical across activations---and vary only the
+activation module via a single constructor argument. The same mechanism
+extends to a BatchNorm-versus-GroupNorm ablation (replacing every
+\texttt{BatchNorm2d} with \texttt{GroupNorm}, 32 groups or fewer for narrow
+layers) on the identical skeleton.
+
+\subsection{Statistical methodology}
+\label{sec:stats_method}
+
+Training-dynamics trajectories span 25 epochs; epochs within one run are
+not independent observations of a stochastic process and are never pooled
+across seeds for a hypothesis test. \textbf{Every directional claim in this
+paper is computed at the level of the independent seed trajectory}: we
+compute one Spearman correlation (or one mean/delta) per (architecture,
+activation, dataset, seed) combination, then test the \emph{sign} of that
+per-trajectory statistic across independent seeds with an exact binomial
+sign test. This is the corrected methodology used throughout; an earlier
+internal draft pooled epochs across seeds for nominal $p$-values that
+inflated significance by roughly the number of epochs and has been
+discarded entirely---no number from that draft appears in this paper.
+
+% =============================================================================
+\section{Gate Collapse During Normal Training}
+\label{sec:dynamics}
+% =============================================================================
+
+\subsection{The core direction split}
+
+Training each architecture with SGD (momentum 0.9, weight decay
+$5\times10^{-4}$, Nesterov, cosine learning-rate schedule from $0.1$,
+batch size 128, 25 epochs), we track gate density and effective rank on a
+fixed held-out batch every epoch. Across ResNet-18, ResNet-50, and VGG-11
+on CIFAR-10 and CIFAR-100 (6 architecture$\times$dataset cells, 3 seeds
+each, 18 independent trajectories), gate density falls and effective rank
+rises in every single trajectory (sign test, $p=3.8\times10^{-6}$ for
+both). Test accuracy rises throughout (e.g.\ ResNet-18/CIFAR-10: 44\%
+$\to$ 92--93\%). In the GELU-based ViT-B/16, gate density instead rises
+toward a ceiling in 4 of 4 independent runs (3 seeds on CIFAR-10, 1 seed on
+CIFAR-100).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[height=0.82\textheight,width=\linewidth,keepaspectratio]{training_dynamics_gate_collapse.png}
+\caption{Gate collapse during normal supervised training. Mean
+active-gradient-fraction and effective rank vs.\ epoch (shaded: 95\% CI
+across seeds) for ResNet-18, ResNet-50, and VGG-11 on CIFAR-10/CIFAR-100.
+Gate density declines and effective rank rises monotonically in every one
+of 18 independent trajectories (sign test $p=3.8\times10^{-6}$, both
+statistics).}
+\label{fig:training_dynamics}
+\end{figure}
+
+\subsection{Resolving the confound: architecture or activation?}
+\label{sec:archvact}
+
+A ReLU-vs-ViT-B/16 contrast confounds activation function with
+architecture family (CNN vs.\ Transformer), normalization, and several
+other structural differences. Holding ResNet-18 and VGG-11 exactly fixed
+and swapping only the activation (ReLU, GELU, SiLU, Mish; 3 seeds; both
+datasets; 48 independent runs total) resolves this directly: every one of
+12 independent ReLU runs declines, and every one of 12 GELU, 12 SiLU, and
+12 Mish runs rises instead (sign test $p=2.44\times10^{-4}$ for each
+activation's 12-of-12 consistency). \textbf{The direction flips with the
+activation, not the architecture family.} Effective rank, in contrast,
+rises in all 48 of 48 runs regardless of activation
+($p=3.55\times10^{-15}$)---it does not track the activation-class split and
+is reported as a separate, non-discriminating observation
+(Section~\ref{sec:rank_null}), not folded into this contribution.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{activation_ablation.png}
+\caption{Architecture-fixed, activation-varied ablation. ResNet-18 and
+VGG-11 skeletons held exactly fixed; only the activation varies. Gate
+density falls for ReLU and rises for GELU/SiLU/Mish on the \emph{same}
+backbone (top row); effective rank rises for every activation regardless
+of direction (bottom row), motivating its exclusion as a contribution.}
+\label{fig:activation_ablation}
+\end{figure}
+
+\subsection{BatchNorm is not necessary}
+\label{sec:bn_ablation}
+
+Replacing every BatchNorm layer with GroupNorm on the identical ResNet-18
+skeleton (4 activations, 3 seeds, 24 runs) leaves the direction unchanged:
+3 of 3 ReLU runs decline and 9 of 9 smooth-activation runs rise under
+\emph{both} normalization schemes (Figure~\ref{fig:bn_ablation}). Magnitude
+is noisier under GroupNorm, particularly for Mish, and final accuracy is
+$\sim$2--4 points lower---both attributable to GroupNorm being unmatched
+in hyperparameters at this scale, not evidence about the underlying
+mechanism. We conclude BatchNorm is not a necessary condition for the
+phenomenon, narrowing what could be driving it to the activation function
+itself---though Section~\ref{sec:mechanism} shows BatchNorm's presence
+\emph{does} supply the specific mechanism by which the direction is set in
+our main experiments.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{bn_vs_gn_gate_dynamics.png}
+\caption{BatchNorm vs.\ GroupNorm. The activation-class direction split
+(ReLU declining, smooth activations rising) is identical under both
+normalization schemes, on the identical ResNet-18 skeleton.}
+\label{fig:bn_ablation}
+\end{figure}
+
+\subsection{Threshold robustness}
+\label{sec:threshold}
+
+The active-gradient-fraction statistic depends on a threshold $\theta$.
+Sweeping $\theta\in\{0.001,0.005,0.01,0.05,0.10\}$ on the architecture-fixed
+ResNet-18 ablation (4 activations, 3 seeds, 60 checks) finds \textbf{zero
+sign flips}: ReLU declines and every smooth activation rises at every
+threshold tested. The \emph{magnitude} of the effect is asymmetric,
+however: at the originally-used threshold ($\theta=0.01$), the
+smooth-activation rise is small in absolute terms ($<1$ percentage point)
+against ReLU's $\sim$13-point fall; the effect only becomes comparably
+large at the strictest threshold tested ($\theta=0.10$: $+4.7$ to $+5.5$
+points). We report this asymmetry explicitly rather than implying the two
+regimes are symmetric.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{threshold_robustness.png}
+\caption{Threshold robustness. Active-gradient-fraction trajectories across
+five thresholds spanning two orders of magnitude. ReLU declines and every
+smooth activation rises at every threshold; magnitude grows with stricter
+thresholds.}
+\label{fig:threshold_robustness}
+\end{figure}
+
+The raw, threshold-free gate magnitude (\texttt{gate\_mean}) \emph{declines
+for every activation tested}, including the ones whose thresholded gate
+density rises (ReLU $-25.5\%$, GELU $-15.3\%$, SiLU $-9.0\%$, Mish
+$-8.4\%$). This is not a contradiction: per-channel quantile analysis shows
+the gate-value distribution compresses from both tails toward its center
+for smooth activations (e.g.\ GELU's 5th percentile rises from 0.041 to
+0.076 while its 95th percentile falls from 1.10 to 0.88 over training),
+simultaneously raising the count above a near-zero threshold while lowering
+the mean; ReLU's distribution remains exactly bimodal at $\{0,1\}$
+throughout, so its mean and thresholded fraction are mathematically
+identical and must move together. Section~\ref{sec:mechanism} explains why
+this compression happens for every activation but produces opposite
+threshold-crossing outcomes.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{gate_distribution_dynamics.png}
+\caption{Gate-magnitude distribution dynamics. Quantile bands (1st--99th
+percentile) over training, by activation. Smooth activations compress from
+both tails toward a moderate center; ReLU remains exactly bimodal
+$\{0,1\}$, with training only shifting the mixture weight between modes.}
+\label{fig:gate_distribution}
+\end{figure}
+
+\subsection{Optimizer generalization}
+\label{sec:optimizer}
+
+Every experiment so far uses SGD with momentum and coupled weight decay,
+which the mechanism in Section~\ref{sec:mechanism} relies on directly
+(BatchNorm's scale shrinking toward an equilibrium under weight decay on a
+scale-invariant layer). We repeated the architecture-fixed ablation
+(ResNet-18, VGG-11; ReLU/GELU/SiLU/Mish; both datasets; 3 seeds; 25 epochs;
+48 independent runs per optimizer) under Adam ($\mathrm{lr}=10^{-3}$,
+\emph{coupled} weight decay, matching SGD's update structure) and AdamW
+(same learning rate, \emph{decoupled} weight decay).
+
+\textbf{Under Adam, the result is unchanged}: every one of 12 independent
+ReLU runs declines and every one of 12 GELU, SiLU, and Mish runs rises
+(sign test $p=4.88\times10^{-4}$ per activation), at magnitudes matching
+SGD (Figure~\ref{fig:optimizer_generalization}).
+
+\textbf{Under AdamW, the split collapses}: all four activations decline
+(12 of 12 runs each, $p=4.88\times10^{-4}$), at broadly comparable small
+magnitudes rather than ReLU's characteristic large fall against the smooth
+activations' small rise. We checked the obvious candidate explanation
+directly rather than speculating: BatchNorm's $\gamma$ under AdamW
+\emph{itself} splits unexpectedly---ReLU and GELU still shrink (though more
+weakly than under SGD/Adam) while SiLU and Mish's $\gamma$ actually
+\emph{grows} (3 of 3 seeds each, in both directions)---yet active-gradient
+fraction declines uniformly across all four regardless. The simple
+$\gamma$-shrinkage account does not explain the AdamW collapse either.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{optimizer_generalization.png}
+\caption{Optimizer generalization. Mean $\Delta$active-gradient-fraction
+(epoch 24 minus epoch 0), by activation and optimizer, $\pm$ standard error
+across 12 independent runs. SGD and Adam (both coupled weight decay) give
+the same direction split; AdamW (decoupled weight decay) collapses it to a
+uniform, smaller-magnitude decline.}
+\label{fig:optimizer_generalization}
+\end{figure}
+
+We report this as a genuine, reproducible scope boundary rather than force
+a unified account: \textbf{the activation-class direction split, and the
+BatchNorm-$\gamma$-shrinkage step of the mechanism, are both empirically
+tied to coupled-weight-decay optimizers.} AdamW's decoupled weight decay
+produces a qualitatively different, currently uncharacterized regime; we do
+not claim the phenomenon or the mechanism extends to it.
+
+\subsection{Generalization beyond CIFAR-scale CNNs}
+\label{sec:generalization}
+
+Two further questions remain open after Sections~\ref{sec:dynamics}'s CIFAR-scale
+CNN experiments: does the phenomenon hold at larger scale, and is it specific
+to convolutional architectures?
+
+\textbf{Scale.} We trained ResNet-18 (its existing CIFAR-native stem, which
+keeps an $8\times8$ feature map before the global pool at $64\times64$
+resolution rather than collapsing it prematurely) on Tiny-ImageNet-200
+(200 classes, $64\times64$, 100k training images), 4 activations, 3 seeds,
+25 epochs. ReLU's decline and effective-rank rise replicate exactly (6 of 6
+seed-level checks across both metrics, matching CIFAR in both direction and
+magnitude). The smooth activations' smaller-magnitude rise also replicates
+in net displacement for 9 of 9 (active-gradient fraction) and 8 of 9
+(effective rank) seeds, but the trajectories are no longer monotonic at this
+scale---an early overshoot followed by partial relaxation---so the
+whole-trajectory linear-trend statistic used elsewhere in this paper loses
+power on this already-small effect even though the net direction is
+preserved. We report both statistics rather than the more favorable one
+alone (Appendix~\ref{app:repro} documents the exact comparison).
+
+\textbf{Architecture family.} We built two CIFAR-native, activation-configurable,
+non-convolutional architectures with no BatchNorm anywhere---an
+MLP-Mixer~\cite{tolstikhin2021mixer} (8 mixer blocks) and a small
+Transformer-Encoder~\cite{vaswani2017attention} (6 self-attention blocks,
+4 heads)---both using LayerNorm, and instrumented with the same
+gate-recovery hooks (every activation is an explicit submodule, unlike
+\texttt{nn.TransformerEncoderLayer}'s functional activation, which the
+hook-based recovery cannot see). Same 4 activations, both datasets, 3
+seeds, 25 epochs.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{generalization_scale_architecture.png}
+\caption{Generalization beyond CIFAR-scale CNNs. Mean
+$\Delta$active-gradient-fraction (epoch end minus start), pooled across
+datasets/seeds. ReLU's decline and the smooth-activation rise both replicate
+on Tiny-ImageNet-200 (left). On two non-convolutional, LayerNorm-only
+architectures (center, right), the smooth-activation rise still replicates,
+but ReLU's decline does not: ReLU rises in MLP-Mixer and is statistically
+indistinguishable from zero in the Transformer-Encoder.}
+\label{fig:generalization_scale_architecture}
+\end{figure}
+
+\textbf{The smooth-activation rise is not CNN- or BatchNorm-specific}: GELU,
+SiLU, and Mish all rise robustly in both new architectures (6 of 6
+independent runs each, sign test $p=0.03125$, magnitude $+0.1$ to $+0.8$
+points)---this directly answers the motivating question. \textbf{The ReLU
+decline, by contrast, does not generalize.} In MLP-Mixer, ReLU instead
+rises in 5 of 6 runs; in the Transformer-Encoder it is small and
+dataset-dependent (mildly declining on CIFAR-100, mixed on CIFAR-10), with
+nothing resembling the large, robust CNN decline. Effective rank is the
+most architecture-dependent statistic of all: the ``rises in every
+condition regardless of activation'' finding from
+Section~\ref{sec:rank_null} does not hold here---MLP-Mixer's rank
+\emph{declines} for every activation including ReLU, and the
+Transformer-Encoder's rank splits by activation (ReLU rises, the smooth
+activations decline). \textbf{The smooth-activation rise generalizes across
+architecture and normalization scheme; the ReLU decline and the
+universal-rank-rise claim are both more CNN-specific than the original
+results alone would suggest}---a narrowing of scope discovered by
+deliberately testing outside the CNN family, not assumed to hold.
+
+% =============================================================================
+\section{Mechanism: Why Activation Class Determines the Direction}
+\label{sec:mechanism}
+% =============================================================================
+
+\subsection{The post-BatchNorm pre-activation distribution}
+
+For a channel with pre-BatchNorm output $u$, BatchNorm computes
+\begin{equation}
+  z=\gamma\cdot\frac{u-\mathrm{mean}(u)}{\sqrt{\mathrm{var}(u)+\epsilon}}+\beta
+  \;\;\Rightarrow\;\;
+  \mathrm{mean}(z)\approx\beta,\quad \mathrm{var}(z)\approx\gamma^2,
+\end{equation}
+to first order, by BatchNorm's own definition---not an approximation about
+the network, but an exact statement about what BatchNorm computes.
+
+\subsection{Why \texorpdfstring{$\gamma$}{gamma} shrinks}
+
+A convolutional layer immediately followed by BatchNorm is scale-invariant:
+rescaling its weights leaves the BatchNorm output unchanged, so only
+weight \emph{direction} matters to the forward pass while $\gamma$ alone
+sets the effective scale. Under SGD with weight decay on such layers,
+prior work~\cite{vanlaarhoven2017l2,hoffer2018norm} shows the effective
+scale is pulled toward an equilibrium that scales with $\sqrt{\eta/\lambda}$
+for learning rate $\eta$ and weight-decay coefficient $\lambda$; under our
+cosine-decayed $\eta$, this equilibrium itself decreases monotonically
+across training. This is consistent with, and a plausible explanation for,
+$\gamma$'s empirically observed monotonic shrinkage in every one of 12
+independent trajectories tested (sign test $p=2.44\times10^{-4}$),
+similarly in relative magnitude across activations ($-81\%$ ReLU, $-73$ to
+$-74\%$ for GELU/SiLU/Mish).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{bn_gamma_dynamics.png}
+\caption{BatchNorm $\gamma,\beta$ dynamics. Mean $|\gamma|$ shrinks
+similarly in relative magnitude across all four activations tested (left,
+center); per-layer breakdown at epoch 24 (right). Because this trend is
+shared across activations, it cannot by itself explain the activation-class
+direction split---only the mechanism below does.}
+\label{fig:bn_gamma}
+\end{figure}
+
+\subsection{The threshold-crossing mechanism}
+
+Define $z_{\rm low}(\theta)=\inf\{z: |f'(z)|>\theta\}$, the point where a
+gate crosses $\theta$ on its negative tail---a property of the activation
+function and threshold alone, fixed and computable with no training
+involved. We compute it exactly via autograd (Table~\ref{tab:zlow}).
+
+\begin{table}[h]
+\centering
+\caption{$z_{\rm low}(\theta=0.10)$, computed exactly via autograd, vs.\
+the empirically observed gate-density trend.}
+\label{tab:zlow}
+\begin{tabular}{lccc}
+\toprule
+Activation & $z_{\rm low}$ & Observed $\rho$(epoch, gate density) & Direction\\
+\midrule
+ReLU / LeakyReLU (all slopes) & $0.000$ & $-0.96$ to $-0.99$ & decline\\
+Softplus $\beta=50$ & $-0.044$ & $-0.59$ & decline\\
+Softplus $\beta=20$ & $-0.110$ & $+0.73$ & rise\\
+Softplus $\beta=10$ & $-0.219$ & $+1.00$ & rise\\
+Softplus $\beta=5$ & $-0.439$ & $+1.00$ & rise\\
+GELU & $-0.554$ & $+1.00$ & rise\\
+SiLU & $-0.912$ & $+0.99$ & rise\\
+Mish & $-0.891$ & $+0.97$ & rise\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+If $z\sim\mathcal{N}(\mu,\sigma^2)$ with $\sigma\to0$ (Sections
+4.1--4.2) and $\mu$ drifts by a \emph{similar} amount regardless of
+activation, then $\mathrm{active\_frac}(\theta)=P(|f'(z)|>\theta)\to0$ or
+$1$ depending only on which side of $z_{\rm low}(\theta)$ the shared
+$\mu$ lands on. Activations with $z_{\rm low}$ near zero have almost no
+margin; activations with strongly negative $z_{\rm low}$ have substantial
+margin for the same small drift in $\mu$.
+
+\subsection{The shared-drift assumption, tested}
+\label{sec:mu_test}
+
+This mechanism is only explanatory, rather than circular, if $\mu$ truly
+drifts similarly across activations rather than differently per
+activation in a way that tracks the outcome directly. We tested this
+rather than assuming it: logging signed pre-activation mean (forward-hook
+only, no backward pass) for 9 representative activations spanning the
+transition, 3 seeds, 25 epochs. At initialization $\mu$ is small and
+positive for every activation ($0.014$--$0.033$); by epoch 6 it has
+flipped negative for \emph{every single activation tested} and remains in
+a narrow, shared band through epoch 24: $-0.041$ (SiLU) to $-0.066$
+(Mish)---a common drift, not nine separate trajectories.
+
+\begin{table}[h]
+\centering
+\caption{Mechanism validation: predicted vs.\ observed direction, derived
+from the measured shared $\mu$-drift and the independently-computed
+$z_{\rm low}$. 9 of 9 predictions correct.}
+\label{tab:mechanism_validation}
+\begin{tabular}{lccccc}
+\toprule
+Activation & $\mu$(epoch 24) & $z_{\rm low}$ & Margin & Predicted & Match\\
+\midrule
+ReLU & $-0.0458$ & $0.000$ & $-0.0458$ & decline & \checkmark\\
+LeakyReLU(0.01) & $-0.0478$ & $0.000$ & $-0.0478$ & decline & \checkmark\\
+Softplus $\beta=50$ & $-0.0476$ & $-0.044$ & $-0.0036$ & decline & \checkmark\\
+Softplus $\beta=20$ & $-0.0568$ & $-0.110$ & $+0.0532$ & rise & \checkmark\\
+Softplus $\beta=10$ & $-0.0635$ & $-0.219$ & $+0.1555$ & rise & \checkmark\\
+Softplus $\beta=5$ & $-0.0586$ & $-0.439$ & $+0.3804$ & rise & \checkmark\\
+GELU & $-0.0508$ & $-0.554$ & $+0.5032$ & rise & \checkmark\\
+SiLU & $-0.0413$ & $-0.912$ & $+0.8707$ & rise & \checkmark\\
+Mish & $-0.0655$ & $-0.891$ & $+0.8255$ & rise & \checkmark\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{theory_mechanism_validation.png}
+\caption{Mechanism validation. (Left) Pre-activation mean drifts to a
+shared negative band across 9 different activation functions. (Right)
+Plotting each activation's measured $\mu$ against its independently
+computed $z_{\rm low}$: every point falls on the side its observed trend
+matches. Softplus($\beta=50$) sits within $0.0036$ of the critical
+boundary---the one condition with a conspicuously weak, high-variance
+empirical correlation ($\rho=-0.59$ vs.\ $|\rho|>0.96$ elsewhere), which the
+mechanism correctly anticipates rather than merely accommodates.}
+\label{fig:mechanism_validation}
+\end{figure}
+
+The mechanism is correct on direction for all 9 conditions tested and
+correctly flags in advance which case should be least reliable. It does
+not explain \emph{why} $\mu$ drifts negative in the first place, nor does
+it predict trend \emph{magnitude}, only sign; we report this as solid on
+direction and open on magnitude and root cause, not as a complete theory.
+
+\subsection{Direct per-channel verification}
+\label{sec:channel_mechanism}
+
+Section~\ref{sec:mu_test} tests the mechanism at the \emph{population}
+level: one pooled $\mu$ per activation/seed/epoch. This leaves open whether
+the same relationship holds at the unit the mechanism actually makes a claim
+about---the individual channel. We logged, for every channel of every
+gate-instrumented layer in ResNet-18 (4 activations, 3 seeds, 25 epochs,
+3{,}904 channels per run), per-channel pre-activation mean and standard
+deviation alongside per-channel active-gradient fraction, at the same five
+epochs used throughout this section.
+
+A first attempt---correlating each channel's raw margin,
+$\mu_c(t)-z_{\rm low}$, against its active-gradient fraction across the 5
+logged epochs---gave a confusing, activation-split result: strong and
+positive for ReLU (87\% of channels positively correlated, mean
+$\rho=+0.61$) but weak and slightly \emph{negative} for GELU/SiLU/Mish
+(41--46\% positive, mean $\rho=-0.10$ to $-0.18$). Rather than report this
+as a partial failure, we diagnosed it: at epoch 0, ReLU's $z_{\rm low}$ sits
+within $0.03$ standard deviations of its channels' own mean---the threshold
+lives at the live center of the distribution---while GELU/SiLU/Mish's
+$z_{\rm low}$ sits $0.9$ to $1.5$ standard deviations away. $\sigma$ shrinks
+about threefold for every activation over training (consistent with
+Section~\ref{sec:mechanism}'s variance-collapse argument), while $\mu$ also
+drifts slightly negative for every activation (Section~\ref{sec:mu_test}).
+For ReLU, this $\mu$-drift directly crosses the live threshold and drives
+active-gradient fraction by itself. For GELU/SiLU/Mish, the same small
+$\mu$-drift instead pulls the \emph{raw} margin down even as $\sigma$'s much
+larger relative shrinkage pulls active-gradient fraction \emph{up} by
+thinning the sub-threshold left tail---the quantile-compression effect
+already established at the population level in Section~\ref{sec:threshold},
+now localized to individual channels. The raw margin conflates these two
+opposing forces; it does not capture $\sigma$ at all.
+
+Replacing the raw margin with a $\sigma$-normalized z-score,
+$(\mu_c(t)-z_{\rm low})/\sigma_c(t)$---the standard way to ask how many
+channel-widths a distribution sits from a boundary, rather than how many raw
+units---removes the confound entirely.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{channel_mechanism_zscore.png}
+\caption{Direct per-channel mechanism verification. Histograms of the
+per-channel correlation between the $\sigma$-normalized margin,
+$(\mu_c-z_{\rm low})/\sigma_c$, and active-gradient fraction, across the 5
+logged epochs, pooled over 3 seeds (3{,}904 channels per activation per
+seed). All four activations show strong, uniform, positive correlation.}
+\label{fig:channel_mechanism}
+\end{figure}
+
+\textbf{All four activations now show strong, uniform, positive per-channel
+correlation}: 90--96\% of channels positively correlated per seed (mean
+92--95\% per activation), mean $\rho=+0.66$ to $+0.80$---stronger than the
+raw-margin test even gave ReLU. Pooling all 4 activations $\times$ 3 seeds,
+12 of 12 show majority-positive channel correlation (sign test
+$p=2.44\times10^{-4}$). This is the direct, per-channel confirmation
+missing from Section~\ref{sec:mu_test}'s population-level test, and it
+sharpens the mechanism rather than merely repeating it: \textbf{thin-margin
+activations (ReLU) are driven by $\mu$ crossing a threshold that sits at
+their distribution's center; thick-margin activations (GELU, SiLU, Mish)
+are driven by $\sigma$-shrinkage thinning a distant tail}---two different
+routes to the same threshold-crossing logic, unified by the same
+$\sigma$-normalized quantity.
+
+\subsection{A continuous test: the smoothness sweep}
+\label{sec:smoothness}
+
+Softplus's derivative is \emph{exactly} the logistic sigmoid,
+$\mathrm{softplus}'(x;\beta)=\mathrm{sigmoid}(\beta x)$---the same gate
+formalism used by this project's original synthetic theory
+(Appendix~\ref{app:synthetic}), with $\beta$ playing the role of that
+theory's stiffness parameter $\alpha$. This is not an analogy; it is the
+same function. A 13-condition sweep (ReLU; LeakyReLU at four slopes;
+PReLU; Softplus at $\beta\in\{50,20,10,5\}$; GELU; SiLU; Mish; 3 seeds; 25
+epochs) tests whether smoothness predicts the trend in a continuous
+dose-response, using $\mathrm{Var}[f'(x)]$ at initialization on the fixed
+evaluation batch as a smoothness index.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{smoothness_sweep_gate_dynamics.png}
+\caption{Smoothness sweep. Gate-density trajectories for 13 activation
+conditions, colored by hypothesized smoothness group. The sign transition
+occurs within the Softplus($\beta$) family, between $\beta=50$ (decline)
+and $\beta=20$ (rise)---predicted exactly by Table~\ref{tab:zlow}.}
+\label{fig:smoothness_sweep}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{smoothness_vs_gate_trend.png}
+\caption{Smoothness index vs.\ gate-density trend. Spearman
+$\rho=-0.731$, $p=0.0045$ (condition-level, $n=12$); $\rho=-0.710$,
+$p=6.1\times10^{-7}$ (seed-level, $n=37$). One excluded point: PReLU
+seed~0 failed to train (10\% accuracy throughout, NaN gate statistics from
+epoch 0) and is disclosed, not silently dropped.}
+\label{fig:smoothness_correlation}
+\end{figure}
+
+The relationship is strong and significant at the seed-trajectory level for
+both trend shape ($\rho=-0.710$, $p=6.1\times10^{-7}$) and magnitude
+($\rho=-0.605$, $p=5.7\times10^{-5}$), and significant at the
+condition level for trend shape ($\rho=-0.731$, $p=0.0045$); the
+condition-level magnitude correlation does not individually reach $p<0.05$
+at $n=12$ ($p=0.122$) but its bootstrap 95\% CI, $[-0.775,-0.401]$, excludes
+zero. One activation---PReLU---is a genuine exception: its smoothness
+index at initialization (0.261) is the \emph{highest} of all 13 conditions,
+yet it rises. This is not a counterexample so much as a limitation of
+measuring smoothness only at initialization: PReLU's negative-slope
+parameter is learned and its effective smoothness changes substantially
+during training (gate variance falls from $\sim$0.24--0.28 to
+$\sim$0.08--0.12), unlike fixed-shape activations. We report this
+exception rather than excluding it from the figure.
+
+We use the prescribed hedge throughout: this is \textbf{evidence consistent
+with} activation smoothness governing the direction split, supported by a
+mechanism whose central assumption we tested directly and whose
+predictions matched 9 of 9 cases---not proof, and not a claim that
+smoothness is the sole or complete explanation.
+
+% =============================================================================
+\section{Two Honestly-Reported Non-Findings}
+% =============================================================================
+
+\subsection{Representational rank: a null result}
+\label{sec:rank_null}
+
+Effective rank rises in every condition tested in this paper---all 18
+original trajectories, all 48 architecture-ablation runs, all 24
+BatchNorm/GroupNorm runs, regardless of activation, architecture, dataset,
+or threshold (114$+$ independent runs, sign test $p<10^{-14}$ pooled). A
+statistic that moves in the same direction in literally every condition
+tried has no power to discriminate anything this paper argues for, and we
+do not list it as a contribution. We flag, but do not resolve, a possible
+connection to BatchNorm-statistics dynamics (Section~\ref{sec:mechanism}),
+and explicitly distinguish it from Neural Collapse (different layer,
+different training-phase window) and self-supervised representation
+collapse (opposite sign, unrelated mechanism)---see Related Work.
+
+\subsection{Pruning: gate density is not a general-purpose importance signal}
+\label{sec:pruning}
+
+We tested whether end-of-training gate density predicts channel importance
+for pruning, using the same ResNet-18/CIFAR-10 checkpoints (4 activations,
+3 seeds, global channel pruning across 1920 channels in 8 layers, ratios
+10--70\%, no retraining, compared against magnitude pruning and a random
+baseline).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{pruning_accuracy_drop.png}
+\caption{Gate-density-guided pruning vs.\ magnitude vs.\ random (mean
+$\pm$ std across 3 seeds, no retraining). For ReLU, gate-density and
+magnitude pruning are statistically indistinguishable. For every smooth
+activation tested, gate-density pruning is dramatically and significantly
+worse---even at 10\% pruning, GELU/SiLU/Mish all lose 65--80 accuracy
+points under gate-density pruning versus under 1.5 points under magnitude
+pruning.}
+\label{fig:pruning}
+\end{figure}
+
+For ReLU, gate-density and magnitude pruning are statistically
+indistinguishable (paired-$t$ $p=0.55$)---\emph{informative equivalence}.
+For GELU, SiLU, and Mish, gate-density pruning is significantly
+\emph{worse} than magnitude pruning at every ratio
+($p=1.5\times10^{-4}$, $5.2\times10^{-5}$, $2.3\times10^{-5}$
+respectively): at 10\% pruning, removing the lowest-gate-density channels
+costs 65--80 accuracy points, while removing the lowest-\emph{magnitude}
+channels costs under 1.5 points. \textbf{Gate density should not be
+presented or used as a general-purpose proxy for channel importance.} For
+three of the four activations studied, doing so is actively harmful, not
+merely uninformative.
+
+% =============================================================================
+\section{An Exploratory Privacy Probe}
+\label{sec:privacy}
+% =============================================================================
+
+As one possible consequence of gate dynamics, we ask whether gate density
+affects gradient-inversion attack success, using a controllable victim
+model (a small CNN with one tunable-stiffness sigmoid gate, distinct from
+the real architectures studied above) against DLG~\cite{zhu2019deep},
+iDLG~\cite{zhao2020idlg}, and the stronger, scale-invariant Inverting
+Gradients attack~\cite{geiping2020inverting} (7 stiffness values, 20
+seeds).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{privacy_gate_collapse.png}
+\caption{Gradient-inversion attack convergence vs.\ gate stiffness. Higher
+stiffness significantly reduces iDLG's convergence probability (logistic
+slope $-0.608$, $p=3.2\times10^{-5}$) but has no effect on Inverting
+Gradients (always converges, 100\%).}
+\label{fig:privacy}
+\end{figure}
+
+Increasing gate stiffness significantly reduces iDLG's convergence
+probability (logistic regression slope $-0.608$, $p=3.2\times10^{-5}$) but
+has \emph{no} effect on Inverting Gradients, which converges regardless
+(100\%; DLG itself shows no significant trend, slope $-0.142$, $p=0.35$).
+\textbf{We do not claim this connects to the real-architecture gate
+dynamics studied in Sections~\ref{sec:dynamics}--\ref{sec:mechanism}}---this
+experiment uses a different, minimal controlled model. The result we do
+claim: gate stiffness is not a general-purpose privacy mitigation, and any
+claim that gradient sparsity protects privacy should specify which
+adversary it was tested against.
+
+% =============================================================================
+\section{Discussion and Limitations}
+% =============================================================================
+
+\textbf{Scale and architecture family, partially resolved.} The main
+results are at CIFAR scale with ResNet/VGG-sized CNNs and one Transformer
+(ViT-B/16). Section~\ref{sec:generalization} tests both open questions
+directly rather than leaving them as caveats: on Tiny-ImageNet-200
+(larger vocabulary, higher resolution), ReLU's decline replicates exactly
+and the smooth-activation rise replicates in net direction, though its
+already-small magnitude becomes harder to detect with a whole-trajectory
+trend statistic once trajectories stop being monotonic at this scale. On
+two non-convolutional, LayerNorm-only architectures (MLP-Mixer,
+Transformer-Encoder), the smooth-activation rise replicates cleanly, but
+\textbf{the ReLU decline does not}---it is small and architecture-dependent
+outside the CNN family, as is the separate ``effective rank always rises''
+claim. We narrow our claims accordingly: the smooth-activation rise
+mechanism generalizes broadly; the ReLU decline and the rank-rise
+observation are CNN-specific findings, not general properties of gate
+dynamics. Full-scale ImageNet and architecture families beyond these two
+remain untested.
+
+\textbf{Optimizer, partially resolved.} The architecture-fixed ablation
+replicates exactly under Adam (coupled weight decay, matching SGD's update
+structure) but the direction split \textbf{collapses under AdamW}
+(decoupled weight decay): all four activations decline instead of
+diverging by class (Section~\ref{sec:optimizer}). BatchNorm's $\gamma$
+itself behaves unexpectedly under AdamW (splitting by activation in a
+pattern that does not track the active-gradient-fraction collapse), so we
+do not have a mechanistic account of the AdamW regime---only the empirical
+fact that it differs. \textbf{The direction split and the mechanism in
+Section~\ref{sec:mechanism} are scoped to coupled-weight-decay optimizers};
+we do not claim either extends to AdamW or other decoupled-decay schemes.
+
+\textbf{ConvNeXt-Tiny is excluded from all claims.} A single-seed,
+15-epoch run on CIFAR-100 reached only 18.9\% test accuracy (badly
+undertrained) and gave a rank-trend sign inconsistent with its own
+CIFAR-10 run; we treat this as uninformative, not as evidence for or
+against any claim in this paper (full numbers in Appendix~\ref{app:convnext}).
+
+\textbf{The mechanism explains direction, not magnitude or root cause.}
+Section~\ref{sec:channel_mechanism}'s per-channel verification strengthens
+the directional claim to the level of individual channels, but we still do
+not derive why the pre-activation mean drifts negative, nor a closed form
+for trend magnitude.
+
+\textbf{Reproducibility.} All training is to a single fixed instrumentation
+batch per run for gate measurement; seeds, hyperparameters, and SLURM
+configuration are listed in Appendix~\ref{app:repro}. Code and all raw
+CSVs/figures are released at the repository linked in the abstract.
+
+% =============================================================================
+\section{Conclusion}
+% =============================================================================
+
+Gate density---the fraction of units carrying gradient signal above a
+threshold---declines during ordinary training of ReLU-based networks and
+rises during ordinary training of GELU/SiLU/Mish-based networks, on
+identical architectures, robust to normalization scheme and to the
+measurement threshold across two orders of magnitude. This direction split
+is not asserted but derived: BatchNorm's scale shrinks under weight decay
+and a decaying learning rate, collapsing pre-activation variance for every
+activation alike, and whether this collapse drives gate density toward 0
+or 1 depends only on a fixed, activation-specific threshold-crossing point.
+We tested this mechanism's central assumption directly rather than
+assuming it, and its predictions matched the observed direction in 9 of 9
+cases across a continuous smoothness sweep whose Softplus family is
+mathematically identical to this project's original synthetic gate theory.
+A direct per-channel test, across thousands of individual channels rather
+than one pooled population statistic, confirms the same relationship at
+the unit the mechanism actually describes, once the test variable is
+correctly $\sigma$-normalized---and reveals that the mechanism operates
+through two different routes depending on activation: $\mu$-crossing for
+thin-margin activations (ReLU), $\sigma$-driven quantile compression for
+thick-margin activations (GELU, SiLU, Mish). The smooth-activation rise
+generalizes beyond CIFAR-scale CNNs, beyond BatchNorm, and beyond SGD/Adam;
+the ReLU decline and the effective-rank-rise observation do not generalize
+beyond the CNN family, and the entire direction split collapses under
+AdamW's decoupled weight decay. We reported, rather than omitted, every
+place this story does not extend cleanly: representational rank, which
+moves the same way regardless of activation on CNNs and is excluded as a
+contribution; pruning, where gate density is actively misleading for three
+of four activations tested; and the architecture-, normalization-, and
+optimizer-specific boundaries discovered by deliberately testing outside
+the original setup rather than assuming it would generalize. The result is
+a bounded, mechanistically-explained, activation-class-dependent
+phenomenon---not a universal theory of gradient dynamics, and we do not
+claim it as one.
+
+% =============================================================================
+\appendix
+\section{Appendix}
+% =============================================================================
+
+\subsection{The synthetic phase-transition theory: motivating context}
+\label{app:synthetic}
+
+The gate vocabulary used throughout this paper ($\Gamma(x)=|f'(x)|$,
+active-gradient-fraction, gate collapse) originates in an earlier,
+fully synthetic study of a single fixed-kernel inverse-reconstruction
+problem with a tunable sigmoid stiffness $\alpha$. That study is
+self-contained, uses bootstrap confidence intervals, Cram\'er--Rao bounds,
+and a depth-compounding theorem whose own follow-up experiment found its
+key independence assumption holds only asymptotically ($\alpha\geq40$),
+which the original study reports candidly rather than overclaiming. We
+preserve it here in full as the originating context for this paper's
+vocabulary and, specifically, for the exact mathematical correspondence
+between its sigmoid-stiffness parameter $\alpha$ and the Softplus-$\beta$
+family used in Section~\ref{sec:smoothness}. \textbf{Its claims are scoped
+to the synthetic, fixed-kernel reconstruction setting described below and
+are not asserted to transfer to the real, trained-network setting of the
+main paper}---the connection is established empirically in
+Section~\ref{sec:smoothness}, not assumed.
+
+\input{appendix_synthetic_theory}
+
+\subsection{Method validation: architecture gate profile at initialization}
+\label{app:validation}
+
+\begin{table}[h]
+\centering
+\caption{Active-gradient-fraction at random initialization, 20 seeds,
+$\theta=0.01$. ReLU architectures cluster near the theoretical $\approx 50\%$
+expectation; GELU-based architectures are near-ceiling; ViT-B/16 shows
+vanishing gradients at default initialization (resolved as an
+initialization artifact below, not a property of depth).}
+\label{tab:init_profile}
+\begin{tabular}{lcc}
+\toprule
+Architecture & Mean active-fraction & Std\\
+\midrule
+ResNet-18 & 0.555 & 0.156\\
+ResNet-50 & 0.529 & 0.116\\
+VGG-11 & 0.618 & 0.141\\
+ConvNeXt-Tiny & 0.994 & 0.004\\
+ViT-B/16 & NaN (vanishing at init) & ---\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{The ViT-B/16 vanishing-gradient finding is an initialization
+artifact, not depth-related.} A dedicated falsification sweep across depth
+(1--12 layers), initialization scheme (default vs.\ truncated-normal
+$\mathrm{std}=0.02$), and batch size (4--64), replicated independently
+twice, finds gradients vanish in 100\% of seeds at \emph{every} depth under
+default initialization and in 0\% of seeds at every depth under the
+standard fix. This is unrelated to, and should not be conflated with, the
+training-time direction split studied in the main paper.
+
+\subsection{ConvNeXt-Tiny: excluded from all claims}
+\label{app:convnext}
+
+A single-seed, 15-epoch training-dynamics run on CIFAR-10 (47.4\% final
+test accuracy) showed effective rank rising (consistent with other smooth
+activations); the corresponding CIFAR-100 run, badly undertrained at
+18.9\% final accuracy, showed effective rank \emph{falling}. We attribute
+the sign disagreement to undertraining, not to a real architectural
+effect, and exclude ConvNeXt-Tiny from every quantitative claim in this
+paper.
+
+\subsection{Reproducibility}
+\label{app:repro}
+
+All training-dynamics experiments use SGD (momentum 0.9, weight decay
+$5\times10^{-4}$, Nesterov), cosine learning-rate schedule from an initial
+rate of 0.1 (CIFAR-native architectures, batch size 128) or scaled
+proportionally for 224-resolution architectures, 25 epochs unless
+otherwise noted, 3 independent seeds per condition unless a training
+failure is disclosed. Gate-density and rank statistics are computed on a
+single fixed 64-example held-out batch per run, re-measured every epoch.
+All experiments ran on a single NVIDIA A100-80GB GPU via SLURM; full job
+scripts, raw CSVs, and all figures are included in the project repository.
+
+The optimizer-generalization experiment (Section~\ref{sec:optimizer}) uses
+identical architecture/data/epoch settings with Adam and AdamW substituted
+for SGD, learning rate $10^{-3}$, weight decay $5\times10^{-4}$ (coupled for
+Adam, decoupled for AdamW), all other hyperparameters unchanged. The
+Tiny-ImageNet experiment (Section~\ref{sec:generalization}) uses the public
+Tiny-ImageNet-200 release (200 classes, $64\times64$, 100k train/10k val
+images), the same CIFAR-native ResNet-18 stem and SGD configuration as
+above, ImageNet-standard per-channel normalization statistics, and the
+same random-crop/flip augmentation pattern used throughout this paper
+(crop padding scaled to the $64\times64$ input). The sequence-model
+experiment uses an 8-block MLP-Mixer (patch size 4, hidden dimension 128,
+token-mixing dimension 64, channel-mixing dimension 512) and a 6-block,
+4-head Transformer-Encoder (patch size 4, hidden dimension 128, MLP
+dimension 256, learnable positional embeddings, a prepended class token),
+both LayerNorm-only, $\sim$1M parameters each, otherwise the same SGD
+configuration and CIFAR-10/CIFAR-100 datasets as the architecture-fixed
+CNN ablation. The per-channel mechanism experiment
+(Section~\ref{sec:channel_mechanism}) uses the same ResNet-18/CIFAR-10/SGD
+configuration as Section~\ref{sec:bn_ablation}, logging per-channel
+statistics at the same five epochs $\{0,6,12,18,24\}$ used by
+Section~\ref{sec:mu_test}.
+
+% =============================================================================
+\begin{thebibliography}{99}
+% =============================================================================
+
+\bibitem{lu2019dying}
+Lu, L., Shin, Y., Su, Y., and Karniadakis, G.\,E. (2019).
+Dying ReLU and initialization: theory and numerical examples.
+\textit{Communications in Computational Physics}, 28(5), 1671--1706.
+
+\bibitem{glorot2010understanding}
+Glorot, X. and Bengio, Y. (2010).
+Understanding the difficulty of training deep feedforward neural networks.
+\textit{Proceedings of AISTATS}, 249--256.
+
+\bibitem{frankle2019lottery}
+Frankle, J. and Carbin, M. (2019).
+The lottery ticket hypothesis: finding sparse, trainable neural networks.
+\textit{International Conference on Learning Representations (ICLR)}.
+
+\bibitem{dong2021attention}
+Dong, Y., Cordonnier, J.-B., and Loukas, A. (2021).
+Attention is not all you need: pure attention loses rank doubly
+exponentially with depth.
+\textit{International Conference on Machine Learning (ICML)}.
+
+\bibitem{papyan2020prevalence}
+Papyan, V., Han, X.\,Y., and Donoho, D.\,L. (2020).
+Prevalence of neural collapse during the terminal phase of deep learning
+training.
+\textit{Proceedings of the National Academy of Sciences}, 117(40),
+24652--24663.
+
+\bibitem{hua2021feature}
+Hua, T., Wang, W., Xue, Z., Ren, S., Wang, Y., and Zhao, H. (2021).
+On feature decorrelation in self-supervised learning.
+\textit{International Conference on Computer Vision (ICCV)}.
+
+\bibitem{jing2022understanding}
+Jing, L., Vincent, P., LeCun, Y., and Tian, Y. (2022).
+Understanding dimensional collapse in contrastive self-supervised learning.
+\textit{International Conference on Learning Representations (ICLR)}.
+
+\bibitem{zhao2020idlg}
+Zhao, B., Mopuri, K.\,R., and Bilen, H. (2020).
+iDLG: improved deep leakage from gradients.
+\textit{arXiv preprint arXiv:2001.02610}.
+
+\bibitem{geiping2020inverting}
+Geiping, J., Bauermeister, H., Dr\"oge, H., and Moeller, M. (2020).
+Inverting gradients---how easy is it to break privacy in federated
+learning?
+\textit{Advances in Neural Information Processing Systems}, 33.
+
+\bibitem{vanlaarhoven2017l2}
+van Laarhoven, T. (2017).
+L2 regularization versus batch and weight normalization.
+\textit{arXiv preprint arXiv:1706.05350}.
+
+\bibitem{hoffer2018norm}
+Hoffer, E., Banner, R., Golan, I., and Soudry, D. (2018).
+Norm matters: efficient and accurate normalization schemes in deep
+networks.
+\textit{Advances in Neural Information Processing Systems}, 31.
+
+\bibitem{tolstikhin2021mixer}
+Tolstikhin, I., Houlsby, N., Kolesnikov, A., Beyer, L., Zhai, X.,
+Unterthiner, T., Yung, J., Steiner, A., Keysers, D., Uszkoreit, J.,
+Lucic, M., and Dosovitskiy, A. (2021).
+MLP-Mixer: an all-MLP architecture for vision.
+\textit{Advances in Neural Information Processing Systems}, 34.
+
+\bibitem{vaswani2017attention}
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L.,
+Gomez, A.\,N., Kaiser, L., and Polosukhin, I. (2017).
+Attention is all you need.
+\textit{Advances in Neural Information Processing Systems}, 30.
+
+\bibitem{li2018visualizing}
+Li, H., Xu, Z., Taylor, G., Studer, C., and Goldstein, T. (2018).
+Visualizing the loss landscape of neural nets.
+\textit{Advances in Neural Information Processing Systems}, 31.
+
+\bibitem{ongie2020deep}
+Ongie, G., Jalal, A., Metzler, C.\,A., Baraniuk, R.\,G., Dimakis, A.\,G.,
+and Willett, R. (2020).
+Deep learning techniques for inverse problems in imaging.
+\textit{IEEE Journal on Selected Areas in Information Theory}, 1(1), 39--56.
+
+\bibitem{chan2016plug}
+Chan, S.\,H., Wang, X., and Elgendy, O.\,A. (2016).
+Plug-and-play ADMM for image restoration.
+\textit{IEEE Transactions on Computational Imaging}, 2(3), 290--305.
+
+\bibitem{kingma2014adam}
+Kingma, D.\,P. and Ba, J. (2015).
+Adam: A method for stochastic optimization.
+\textit{International Conference on Learning Representations (ICLR)}.
+
+\bibitem{zhu2019deep}
+Zhu, L., Liu, Z., and Han, S. (2019).
+Deep leakage from gradients.
+\textit{Advances in Neural Information Processing Systems}, 32.
+
+\bibitem{mahendran2015understanding}
+Mahendran, A. and Vedaldi, A. (2015).
+Understanding deep image representations by inverting them.
+\textit{CVPR}, 5188--5196.
+
+\bibitem{donoho2006compressed}
+Donoho, D.\,L. (2006).
+Compressed sensing.
+\textit{IEEE Transactions on Information Theory}, 52(4), 1289--1306.
+
+\end{thebibliography}
+
+\end{document}
