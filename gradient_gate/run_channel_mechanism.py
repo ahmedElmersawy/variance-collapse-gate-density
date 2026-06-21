@@ -39,7 +39,7 @@ import torch.nn as nn
 from gradient_gate.cifar_models import cifar_resnet18
 from gradient_gate.instrumentation import ELEMENTWISE_ACT_TYPES, GATE_EPS, GRAD_RATIO_EPS
 from gradient_gate.run_smoothness_sweep import ACTIVATIONS
-from gradient_gate.run_training_dynamics import CSV_DIR, DATA_ROOT, evaluate, get_dataloaders
+from gradient_gate.run_training_dynamics import CSV_DIR, DATA_ROOT, build_optimizer, evaluate, get_dataloaders
 
 MECH_EPOCHS = (0, 6, 12, 18, 24)
 MAIN_ACTIVATIONS = ("relu", "gelu", "silu", "mish")  # the four load-bearing main-paper activations
@@ -140,15 +140,20 @@ def compute_z_low(act_factory, threshold=GATE_EPS, z_min=-15.0, z_max=15.0, n=60
     return float(z[idx].detach())
 
 
-def already_done(out_path, activation, seed, final_epoch):
+def already_done(out_path, activation, seed, final_epoch, optimizer="sgd"):
     if not os.path.exists(out_path):
         return False
-    df = pd.read_csv(out_path, usecols=["activation", "seed", "epoch"])
+    header_cols = pd.read_csv(out_path, nrows=0).columns
+    usecols = [c for c in ("activation", "seed", "epoch", "optimizer") if c in header_cols]
+    df = pd.read_csv(out_path, usecols=usecols)
     mask = (df.activation == activation) & (df.seed == seed) & (df.epoch == final_epoch)
+    if "optimizer" in df.columns:
+        mask &= (df.optimizer == optimizer)
     return len(df[mask]) > 0
 
 
-def run_one(activation, seed, epochs, batch_size, lr, data_root, out_path, device, num_workers):
+def run_one(activation, seed, epochs, batch_size, lr, data_root, out_path, device, num_workers,
+            optimizer="sgd"):
     group, act_factory = ACTIVATIONS[activation]
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -156,7 +161,7 @@ def run_one(activation, seed, epochs, batch_size, lr, data_root, out_path, devic
     train_loader, test_loader = get_dataloaders("cifar10", "resnet18", batch_size, data_root, num_workers)
     model = cifar_resnet18(num_classes=10, act_layer=act_factory).to(device)
 
-    opt = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
+    opt = build_optimizer(optimizer, model, lr)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
 
     instr_x, instr_y = next(iter(test_loader))
@@ -187,13 +192,13 @@ def run_one(activation, seed, epochs, batch_size, lr, data_root, out_path, devic
             model.zero_grad()
 
             for r in rows:
-                r.update(activation=activation, seed=seed, epoch=epoch, test_acc=test_acc)
+                r.update(activation=activation, optimizer=optimizer, seed=seed, epoch=epoch, test_acc=test_acc)
             pd.DataFrame(rows).to_csv(out_path, mode="a", header=not os.path.exists(out_path), index=False)
-            print(f"[chan-mech] {activation} seed={seed} epoch={epoch:3d}/{epochs} [MECH] "
+            print(f"[chan-mech] {activation}({optimizer}) seed={seed} epoch={epoch:3d}/{epochs} [MECH] "
                   f"n_channels={len(rows)} test_acc={test_acc:.3f} "
                   f"mean_active_frac={np.mean([r['active_frac'] for r in rows]):.3f} ({time.time()-t0:.1f}s)")
         else:
-            print(f"[chan-mech] {activation} seed={seed} epoch={epoch:3d}/{epochs} ({time.time()-t0:.1f}s)")
+            print(f"[chan-mech] {activation}({optimizer}) seed={seed} epoch={epoch:3d}/{epochs} ({time.time()-t0:.1f}s)")
 
     del model
     if device == "cuda":
@@ -206,16 +211,21 @@ def main():
     ap.add_argument("--seeds", nargs="+", type=int, default=[0, 1, 2])
     ap.add_argument("--epochs", type=int, default=25)
     ap.add_argument("--batch-size", type=int, default=128)
-    ap.add_argument("--lr", type=float, default=0.1)
+    ap.add_argument("--optimizer", default="sgd", choices=["sgd", "adam", "adamw"])
+    ap.add_argument("--lr", type=float, default=None,
+                     help="defaults to 0.1 for sgd, 1e-3 for adam/adamw if not given")
     ap.add_argument("--num-workers", type=int, default=0)
     ap.add_argument("--data-root", default=DATA_ROOT)
     ap.add_argument("--out", default=os.path.join(CSV_DIR, "channel_mechanism.csv"))
     ap.add_argument("--zlow-out", default=os.path.join(CSV_DIR, "channel_mechanism_zlow.csv"))
     args = ap.parse_args()
+    if args.lr is None:
+        args.lr = 0.1 if args.optimizer == "sgd" else 1e-3
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    print(f"[chan-mech] device={device} activations={args.activations} seeds={args.seeds} epochs={args.epochs}")
+    print(f"[chan-mech] device={device} activations={args.activations} optimizer={args.optimizer} "
+          f"lr={args.lr} seeds={args.seeds} epochs={args.epochs}")
 
     zlow_rows = []
     for activation in args.activations:
@@ -227,13 +237,13 @@ def main():
 
     for activation in args.activations:
         for seed in args.seeds:
-            if already_done(args.out, activation, seed, args.epochs - 1):
-                print(f"[chan-mech] [skip] {activation} seed={seed} already complete")
+            if already_done(args.out, activation, seed, args.epochs - 1, args.optimizer):
+                print(f"[chan-mech] [skip] {activation}({args.optimizer}) seed={seed} already complete")
                 continue
             t0 = time.time()
             run_one(activation, seed, args.epochs, args.batch_size, args.lr, args.data_root, args.out,
-                    device, args.num_workers)
-            print(f"[chan-mech] {activation} seed={seed} done in {(time.time()-t0)/60:.1f} min")
+                    device, args.num_workers, optimizer=args.optimizer)
+            print(f"[chan-mech] {activation}({args.optimizer}) seed={seed} done in {(time.time()-t0)/60:.1f} min")
 
 
 if __name__ == "__main__":

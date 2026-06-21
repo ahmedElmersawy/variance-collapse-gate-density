@@ -365,3 +365,241 @@ two sub-claims specifically, discovered by deliberately testing outside
 the CNN family rather than assumed to generalize. Csvs:
 `sequence_model_seedlevel.csv`, `sequence_model_summary_af.csv`,
 `sequence_model_summary_rank.csv`.
+
+---
+
+## NeurIPS-8 revision campaign (2026-06-20). Task A pre-registration.
+
+New campaign: resolve the AdamW anomaly mechanistically (Task A, highest
+priority), attempt a mu-drift derivation (Task B), scale beyond CIFAR
+(Task C), find one real practical payoff (Task D).
+
+**Pre-registering Task A's test, in writing, before running anything or
+looking at any outcome** (guardrail: this is a falsifiable test, not a
+goal to satisfy; no redefining z_low, the predictor, or channel selection
+after seeing results):
+
+- **Hypothesis under test**: the activation-class direction split is a
+  downstream consequence of sigma-collapse, not an optimizer-independent
+  law. Under coupled weight decay (SGD, Adam), BatchNorm sigma shrinks for
+  every activation; for thick-margin activations (GELU/SiLU/Mish) this
+  thins a distant sub-threshold tail and active_frac rises; for thin-margin
+  ReLU, mu-drift dominates and it falls. Under AdamW (decoupled weight
+  decay), sigma does not uniformly shrink (already observed:
+  `mechanism_logging_adamw.csv` shows relu/gelu's pooled bn_mean_abs_gamma
+  still shrinking, r=-0.50 to -0.84, but silu/mish's GROWING, r=+0.95 to
+  +0.98) -- removing tail-thinning should remove the smooth-activation
+  rise; with mu still drifting negative, the prediction is uniform decline.
+- **Exact predictor, unmodified from `analyze_channel_mechanism.py`'s
+  PRIMARY test**: per channel c, per epoch t, the sigma-normalized z-score
+  margin `(mu_c(t) - z_low) / sigma_c(t)`, with `z_low` computed by the
+  EXACT SAME `compute_z_low()` function already used for the SGD result
+  (no new threshold, no reselected channels, no different activation
+  subset -- relu/gelu/silu/mish, the same four activations as the
+  SGD/AdamW population-level results).
+- **What "the predictor predicts correctly" means, fixed before running**:
+  (a) per-channel test, same protocol as the SGD case -- for each
+  (activation, seed), the fraction of channels where
+  corr(z-score margin, active_frac) > 0 across the 5 logged epochs; sign
+  test across seeds, same threshold (>0.5 majority) and same significance
+  reporting (binomial p) as the SGD analysis. (b) Separately, whether the
+  per-activation TREND in the z-score margin itself (rising/falling sigma
+  in units of margin) matches the sign required to produce the observed
+  active_frac trend under AdamW (relu: decline, as under SGD; gelu/silu/mish:
+  decline, UNLIKE under SGD) -- this is the test of the sigma-collapse
+  hypothesis specifically, not just the generic per-channel correlation.
+- **Required new data**: per-channel mu_c(t), sigma_c(t), active_frac_c(t)
+  under AdamW do not exist yet (`channel_mechanism.csv` is SGD-only;
+  `mechanism_logging_adamw.csv` is population-pooled, not per-channel).
+  Added `--optimizer` to `run_channel_mechanism.py` (same `build_optimizer`
+  helper as the rest of the project) and will run it under AdamW, same 4
+  activations, 3 seeds, 25 epochs, same MECH_EPOCHS={0,6,12,18,24}, writing
+  to a NEW file (`channel_mechanism_adamw.csv`) so the existing SGD data is
+  untouched.
+- **Both outcomes are reportable and neither is preferred in advance**: if
+  the predictor (fed AdamW's real measured mu/sigma) gets the per-activation
+  direction right, that unifies the mechanism across optimizers and becomes
+  the paper's headline. If it does not, the specific failure mode will be
+  characterized and reported as an open regime -- the mechanism will not be
+  modified post hoc to fit.
+
+### Task A: AdamW per-channel job submitted
+
+Added `--optimizer` to `run_channel_mechanism.py` (reuses
+`build_optimizer`, same pattern as the other scripts; checkpoint-aware
+`already_done` now also checks the optimizer column when present, mirroring
+`run_pruning_experiment.py`'s `sgd`-keeps-its-original-name convention used
+elsewhere is NOT needed here since this script never saved checkpoints by
+filename in the first place -- only the output CSV path differs). Smoke
+test (z_low computation, `already_done` on a nonexistent file) passed.
+**Job 11072643** submitted: relu/gelu/silu/mish, AdamW, ResNet-18,
+CIFAR-10, 3 seeds, 25 epochs, identical MECH_EPOCHS to the SGD run, writing
+to `channel_mechanism_adamw.csv` (new file, SGD data untouched).
+
+### Task B: mu-drift derivation, attempted and tested against existing data
+
+**Derivation attempted.** This project's optimizer applies weight decay to
+every parameter, including BatchNorm's beta (`torch.optim.SGD(...,
+weight_decay=5e-4)`, no no-decay parameter group -- confirmed by reading
+`run_training_dynamics.py`/`run_channel_mechanism.py`'s optimizer
+construction). For a parameter evolving under plain SGD with weight decay,
+$\theta_{t+1} = \theta_t - \eta(g_t + \lambda\theta_t)$, where $g_t$ is the
+task gradient and $\lambda$ the decay coefficient: if $g_t$ has a
+roughly-constant average value $\bar g$ over a window where $\eta$ is
+locally constant, the system relaxes toward a quasi-equilibrium
+$\theta^\ast \approx -\bar g/\lambda$. For BatchNorm's beta, $g_t = dL/d\beta
+= \sum_{\text{batch}} dL/dz$ (since $z = \gamma\cdot\widehat{u}+\beta$, so
+$dz/d\beta=1$) -- the gradient flowing into the pre-activation, summed over
+the batch. This is a generic, architecture-independent fact about SGD+L2
+regularization, NOT specific to BatchNorm's scale-invariance (unlike the
+gamma argument in Section 5.2, which needs scale-invariance specifically).
+**The one falsifiable prediction**: if $\bar g$ (the average downstream
+gradient pressure into $z$) is set mainly by the shared architecture/task
+rather than by each activation's own shape, then beta's (=mu's, since
+mean($z$)=beta exactly by BatchNorm's own definition) equilibrium value
+should be nearly identical across very different activation functions
+(same $\lambda=5\times10^{-4}$ for all), and should NOT correlate with
+activation-specific shape properties like $z_{\rm low}$ or an
+init-time smoothness index.
+
+**Tested against `preactivation_mean_check.csv`** (9 activations, 3 seeds,
+already on disk, no new experiment needed): mu at epoch 24 ranges only
+$-0.065$ to $-0.041$ (spread 0.024) across activations whose $z_{\rm low}$
+spans $-0.00005$ to $-1.234$ (a 4-order-of-magnitude range) -- the
+narrowness this account predicts. But the cross-activation variation IS
+statistically real, not noise: one-way ANOVA across the 9 activations,
+$F=29.7$, $p=7.7\times10^{-9}$; between-activation std (0.0084) is
+$3.5\times$ the within-activation (seed) std (0.0024). Tested whether this
+residual variation correlates with $z_{\rm low}$: Pearson $r=0.26$,
+$p=0.51$; Spearman $\rho=0.28$, $p=0.46$ -- not significant. Tested against
+an init-time smoothness index ($\mathrm{Var}[f'(z)]$ for $z\sim
+\mathcal N(0,1)$, matching this paper's existing smoothness-sweep
+definition): Pearson $r=0.15$, $p=0.71$; Spearman $\rho=0.30$, $p=0.43$ --
+also not significant.
+
+**Honest conclusion, reported as partial, not forced further**: the
+generic SGD+L2 equilibrium argument correctly predicts the qualitative
+fact this paper already reported descriptively (a narrow, shared band
+despite wildly different activation shapes) and gives it a mechanistic
+reason (shared $\lambda$, roughly shared $\bar g$) rather than leaving it
+as an unexplained empirical regularity. It does NOT explain the residual,
+statistically significant (p<1e-8) activation-to-activation variation
+within that narrow band -- ruled out two natural candidates ($z_{\rm low}$,
+init-time smoothness) as the source of that residual; stopping there
+rather than testing further candidates post hoc to avoid the appearance of
+fishing for one that fits. This closes part of the previously-flagged gap
+(why the drift is negative and narrowly shared) while leaving the
+remainder (the small residual activation-dependence) explicitly open.
+
+### Task D pre-registration (written before computing anything; guardrail: no p-hacking the payoff)
+
+**Predictor (fixed, already known, not re-derived after seeing the
+outcome)**: each existing checkpoint's final (epoch 24) population-level
+active\_frac, already on disk in `mechanism_logging.csv` (SGD) and
+`mechanism_logging_adamw.csv` (AdamW) -- 24 checkpoints total: 4
+activations $\times$ {sgd, adamw} $\times$ 3 seeds, all already trained
+25 epochs on ResNet-18/CIFAR-10
+(`gradient_gate_outputs/checkpoints{,_adamw}/*.pt`).
+
+**Outcome (fixed in advance, not yet measured)**: test accuracy after
+fine-tuning the FULL pretrained network (not just a linear head) on a
+fixed 5%-of-train-set subsample of CIFAR-10 (2,500 images, seeded,
+identical subsample for every checkpoint), for a fixed recipe applied
+identically to all 24 checkpoints regardless of their original
+optimizer: SGD, lr=0.01, momentum 0.9, weight\_decay 5e-4, 5 epochs, batch
+size 64. This is a low-data fine-tuning stress test: does a network's
+ALREADY-MEASURED gate density level (no new training needed to know this)
+predict how well it adapts when later given very little new data?
+
+**Pre-registered test**: Pearson and Spearman correlation between
+(predictor: final active\_frac) and (outcome: post-fine-tune test
+accuracy on the FULL CIFAR-10 test set), across all 24 checkpoints. Also
+report the same correlation computed separately within the SGD-only
+subset (12 checkpoints) and AdamW-only subset (12 checkpoints), since
+pooling across optimizers could mix two different populations. No
+checkpoint will be excluded after seeing its result; if any checkpoint
+fails to fine-tune (e.g., NaN loss) it will be disclosed, not dropped
+silently.
+
+**What would count as a real, useful signal**: a statistically detectable
+(seed-level test, not pooled) correlation in either direction, reported
+honestly regardless of sign. A null result (no detectable correlation) is
+an acceptable, reportable outcome per the guardrails -- it will be stated
+as such, not searched-around-until-something-significant-appears.
+
+### TASK A RESULT: the predictor succeeds. The mechanism now spans SGD, Adam, and AdamW.
+
+**Job 11072643 completed** (relu/gelu/silu/mish, AdamW, ResNet-18,
+CIFAR-10, 3 seeds, 25 epochs, identical MECH_EPOCHS to the SGD run) ->
+`channel_mechanism_adamw.csv` (234,240 rows, matches expected size
+exactly). Ran the EXACT, unmodified `analyze_channel_mechanism.py` against
+it -- same `compute_z_low`, same sigma-normalized margin formula, no new
+threshold, no reselected channels, no different activation subset.
+
+**Step 1 -- does the LOCAL law still hold under AdamW?** Yes: per-channel
+correlation between the sigma-normalized margin and active_frac across the
+5 epochs is positive for all four activations under AdamW too (72-90% of
+channels per seed, mean correlation +0.36 to +0.73, 12/12
+activation x seed cells majority-positive). This says the RELATIONSHIP
+between margin and active_frac is optimizer-invariant -- a real, useful
+fact, but on its own it does not yet explain why AdamW's TREND differs
+from SGD's, since a positive correlation is compatible with either a
+rising or a falling trend.
+
+**Step 2 -- the decisive test, pre-registered before computing it: does
+the margin's TREND match the active_frac TREND actually observed under
+AdamW (decline for all four)?** Computed per-channel margin delta (epoch
+24 minus epoch 0) and active_frac delta, same sign-match protocol as the
+SGD analysis. **12 of 12 (activation x seed) cells show majority
+per-channel agreement** that the margin trend's sign matches the
+active_frac trend's sign (relu: 87-89% of channels per seed; gelu: 68-75%;
+silu: 77-79%; mish: 74-77%; pooled binomial $p=2.44\times10^{-4}$).
+Population-level (pooled-channel) margin deltas are negative for ALL FOUR
+activations under AdamW (relu $-0.172$, gelu $-0.176$, silu $-0.209$, mish
+$-0.228$, all 12/12 seeds same sign) -- exactly matching the observed
+uniform active\_frac decline (relu $-7.0$pp, gelu $-2.0$pp, silu $-1.4$pp,
+mish $-1.6$pp, also all 12/12 seeds same sign). **The predictor, fed
+AdamW's real measured trajectories with zero new free parameters, gets
+the direction right for every one of the 12 activation x seed cells.**
+
+**Step 3 -- the mechanistic link, confirmed directly (not just inferred
+from population-pooled gamma as before)**: per-channel sigma, epoch 0 to
+24, by activation and optimizer:
+
+| activation | SGD sigma change | AdamW sigma change |
+|---|---|---|
+| relu | $-77.0\%$ | $-0.9\%$ (flat) |
+| gelu | $-67.5\%$ | $+2.2\%$ (grows) |
+| silu | $-66.2\%$ | $+4.8\%$ (grows) |
+| mish | $-66.9\%$ | $+4.7\%$ (grows) |
+
+Under SGD, sigma collapses by roughly two-thirds for every activation
+(driving the margin UP for thick-margin activations as the denominator
+shrinks, producing the smooth-activation rise). Under AdamW, sigma does
+not collapse at all -- it is flat for ReLU and **grows** for the three
+smooth activations. With sigma flat-or-growing and mu still drifting
+slightly negative (the population-level fact already established and
+re-confirmed here), the margin (mu-z_low)/sigma can only decline: for
+relu, a shrinking numerator combined with flat sigma produces a sharp
+decline (matching its large active_frac drop); for the smooth
+activations, growing sigma alone is enough to push the ratio down even
+though the numerator barely moves (matching their smaller but still
+real and consistent declines).
+
+**This is the "predicts correctly" outcome.** The mechanism in
+Section~5 is not two separate, optimizer-specific stories -- it is one
+predictor (the sigma-normalized threshold-crossing margin) whose INPUT
+trajectory (does sigma collapse or not, under coupled vs.\ decoupled
+weight decay) determines the OUTPUT direction, correctly, in every
+regime tested. The AdamW "anomaly" from the previous revision is now a
+predicted consequence, not an unexplained scope boundary. This becomes
+the paper's headline result: rewrite Section 4.5/5 so this is presented
+as a unified, falsifiable, predictive theory spanning SGD, Adam, and
+AdamW, not as "the mechanism collapses under AdamW."
+
+Csvs: `channel_mechanism_adamw.csv`, `channel_mechanism_adamw_zlow.csv`,
+`channel_mechanism_adamw_summary.csv`. Script:
+`gradient_gate/run_channel_mechanism.py --optimizer adamw` (new flag,
+reuses `build_optimizer`); analysis via the EXISTING, unmodified
+`gradient_gate/analyze_channel_mechanism.py --data
+channel_mechanism_adamw.csv --zlow channel_mechanism_adamw_zlow.csv`.
