@@ -46,7 +46,13 @@ PLACES_STD = (0.229, 0.224, 0.225)
 class Places365Subset(torch.utils.data.Dataset):
     """Fixed-size, seeded per-class subsample (not the full 1.8M-image
     train set) of Places365-Standard's easyformat split
-    (root/{train,val}/<class>/<file>.jpg)."""
+    (root/{train,val}/<class>/<file>.jpg). Kept for reference/smoke-testing
+    -- NOT used for the real training run, see CachedPlaces365 below and
+    cache_places365.py's module docstring for why: per-image PIL decode
+    from individual files on this scratch filesystem has severe per-file
+    I/O latency (directly measured: ~0.57MB/s sustained, ~12.5 images/s
+    single-threaded), making a full run take days instead of the budgeted
+    hours."""
 
     def __init__(self, root, split, n_per_class, transform, seed=12345):
         self.transform = transform
@@ -71,7 +77,46 @@ class Places365Subset(torch.utils.data.Dataset):
         return self.transform(img), label
 
 
-def get_dataloaders(data_root, batch_size, num_workers=0):
+class CachedPlaces365(torch.utils.data.Dataset):
+    """Loads the single pre-built cache tensor (cache_places365.py) ONCE
+    into memory; every __getitem__ is then a pure in-memory tensor crop/flip,
+    not a disk read. Same augmentation semantics as the original
+    PIL-based pipeline (RandomResizedCrop(IMG_SIZE, scale=(0.7,1.0)) +
+    RandomHorizontalFlip for train; center-resize for val), just operating
+    on the cached uint8 tensor via torchvision's tensor-mode transforms
+    instead of re-decoding JPEGs every call."""
+
+    def __init__(self, cache_path, train):
+        cache = torch.load(cache_path, weights_only=False)
+        self.images = cache["images"]  # [N,3,CACHE_SIZE,CACHE_SIZE] uint8
+        self.labels = cache["labels"]
+        self.class_to_idx = cache["class_to_idx"]
+        if train:
+            self.transform = T.Compose([
+                T.RandomResizedCrop(IMG_SIZE, scale=(0.7, 1.0)), T.RandomHorizontalFlip(),
+                T.ConvertImageDtype(torch.float32), T.Normalize(PLACES_MEAN, PLACES_STD)])
+        else:
+            self.transform = T.Compose([
+                T.Resize((IMG_SIZE, IMG_SIZE)),
+                T.ConvertImageDtype(torch.float32), T.Normalize(PLACES_MEAN, PLACES_STD)])
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return self.transform(self.images[idx]), int(self.labels[idx])
+
+
+def get_dataloaders(data_root, batch_size, num_workers=0, cache_dir=None):
+    if cache_dir is not None:
+        train_ds = CachedPlaces365(os.path.join(cache_dir, "train_cache.pt"), train=True)
+        test_ds = CachedPlaces365(os.path.join(cache_dir, "val_cache.pt"), train=False)
+        train_loader = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True,
+                                                    num_workers=num_workers, pin_memory=True, drop_last=True)
+        test_loader = torch.utils.data.DataLoader(test_ds, batch_size=256, shuffle=False,
+                                                   num_workers=num_workers, pin_memory=True)
+        return train_loader, test_loader
+
     train_tf = T.Compose([T.RandomResizedCrop(IMG_SIZE, scale=(0.7, 1.0)), T.RandomHorizontalFlip(),
                            T.ToTensor(), T.Normalize(PLACES_MEAN, PLACES_STD)])
     test_tf = T.Compose([T.Resize((IMG_SIZE, IMG_SIZE)), T.ToTensor(), T.Normalize(PLACES_MEAN, PLACES_STD)])
@@ -126,11 +171,11 @@ def already_done(out_path, activation, seed, final_epoch):
 
 
 def run_one(activation, seed, epochs, batch_size, lr, data_root, out_path, device, num_workers,
-            optimizer="sgd"):
+            optimizer="sgd", cache_dir=None):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    train_loader, test_loader = get_dataloaders(data_root, batch_size, num_workers)
+    train_loader, test_loader = get_dataloaders(data_root, batch_size, num_workers, cache_dir=cache_dir)
     _, act_factory = ACTIVATIONS[activation]
     model = cifar_resnet50(num_classes=365, act_layer=act_factory).to(device)
 
@@ -182,6 +227,11 @@ def main():
     ap.add_argument("--num-workers", type=int, default=0)
     ap.add_argument("--data-root", default=PLACES_ROOT)
     ap.add_argument("--out", default=os.path.join(CSV_DIR, "places365_dynamics.csv"))
+    ap.add_argument("--cache-dir", default=None,
+                     help="if set, load from cache_places365.py's pre-built tensor cache instead of "
+                          "per-image PIL decode -- see CachedPlaces365's docstring for why this is "
+                          "necessary (per-file I/O latency on this filesystem otherwise makes one "
+                          "epoch take roughly an hour).")
     args = ap.parse_args()
     if args.lr is None:
         args.lr = 0.1 if args.optimizer == "sgd" else 1e-3
@@ -190,7 +240,7 @@ def main():
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     print(f"[places-dyn] device={device} activations={args.activations} optimizer={args.optimizer} "
           f"lr={args.lr} seeds={args.seeds} epochs={args.epochs} "
-          f"samples_per_class_train={SAMPLES_PER_CLASS_TRAIN} img_size={IMG_SIZE}")
+          f"samples_per_class_train={SAMPLES_PER_CLASS_TRAIN} img_size={IMG_SIZE} cache_dir={args.cache_dir}")
 
     for activation in args.activations:
         for seed in args.seeds:
@@ -199,7 +249,7 @@ def main():
                 continue
             t0 = time.time()
             run_one(activation, seed, args.epochs, args.batch_size, args.lr, args.data_root, args.out,
-                    device, args.num_workers, optimizer=args.optimizer)
+                    device, args.num_workers, optimizer=args.optimizer, cache_dir=args.cache_dir)
             print(f"[places-dyn] {activation} seed={seed} done in {(time.time()-t0)/60:.1f} min")
 
 

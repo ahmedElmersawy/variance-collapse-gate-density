@@ -61,18 +61,38 @@ else
 fi
 echo "Extraction step complete at $(date)"
 
+# Step 1.5: build the image cache (CPU/IO-bound, ONE TIME). Direct
+# diagnosis of the first training attempt (job 11078036/11081101) found
+# 0% GPU utilization and ~0.57MB/s sustained read throughput -- per-image
+# PIL decode from individual files on this scratch filesystem has severe
+# per-file I/O latency, which would have made one epoch take roughly an
+# hour and the full run take days, not the 24h budgeted. Paying that
+# per-file I/O cost ONCE here (cache_places365.py reads each of the 62,050
+# needed images exactly once, resizes to 144x144, stores as two tensor
+# files) rather than once per epoch x activation x seed (200 times) is the
+# fix; see that script's module docstring for the full diagnosis.
+cd /home/aelmersa/MMLS
+if [ ! -f /scratch/gilbreth/aelmersa/places365/cache/train_cache.pt ] || \
+   [ ! -f /scratch/gilbreth/aelmersa/places365/cache/val_cache.pt ]; then
+  python3 -u -m gradient_gate.cache_places365
+else
+  echo "cache files already present, skipping cache build"
+fi
+echo "Cache step complete at $(date)"
+
 # Step 2: training (GPU). Task C: ResNet-50, CIFAR-native stem (already
 # appropriate at 96x96 -- strides (1,2,2,2) give a 12x12 feature map before
 # the global pool, not collapsed prematurely), relu/gelu/silu/mish, 2
 # seeds (feasible within this job's budget), 25 epochs, SGD, on the fixed
-# 150-train/20-val-per-class Places365 subsample.
-cd /home/aelmersa/MMLS
+# 150-train/20-val-per-class Places365 subsample, loaded from the cache
+# built above (NOT the slow per-file PIL path).
 python3 -u -m gradient_gate.run_places365_dynamics \
     --activations relu gelu silu mish \
     --seeds 0 1 \
     --epochs 25 \
     --batch-size 128 \
     --optimizer sgd \
-    --num-workers 0
+    --num-workers 0 \
+    --cache-dir /scratch/gilbreth/aelmersa/places365/cache
 
 echo "Job complete at $(date)"

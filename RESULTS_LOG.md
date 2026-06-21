@@ -750,3 +750,54 @@ run skips straight to training). Three real bugs now caught and fixed in
 this one Task C sub-effort alone (login-node policy violation, `tar -k`
 + `set -e` silent-failure, `Bottleneck` missing `norm_layer`) -- each
 verified directly before being declared fixed, not assumed.
+
+### Task C: a fourth issue -- per-image PIL decode from this scratch filesystem is the real bottleneck, not "slow training"
+
+**Job 11081101 result**: extraction skipped correctly (marker present),
+`cifar_resnet50` built successfully (the norm_layer fix held, `device=cuda`
+confirmed), but after 20+ minutes, zero epochs had printed. Diagnosed
+directly rather than just waiting longer: `ssh`'d to the job's compute
+node and ran `nvidia-smi` (0% GPU utilization) and read
+`/proc/<pid>/status` and `/proc/<pid>/io` for the training process
+(state `I` -- idle/blocked, not running; `rchar`=679MB over ~20 minutes,
+i.e. ~0.57MB/s sustained, ~12.5 images/s single-threaded). At that rate
+one epoch's data loading alone (54,750 train images) would take roughly
+an hour, and the full run (25 epochs x 4 activations x 2 seeds = 200
+epoch-runs) would take days, not the 24h budgeted -- not "slow," actually
+infeasible within any reasonable allocation. Root cause: per-image PIL
+decode from individual JPEG files on this network/scratch filesystem has
+severe per-file I/O latency (the same class of issue that made the raw
+tar extraction slow), and `num_workers=0` (this project's standing rule,
+justified for CIFAR-scale in-memory datasets, kept here too rather than
+risk the documented CUDA+fork hang) gives no overlap between I/O and GPU
+compute to hide it.
+
+**Fixed** with a one-time caching step rather than changing the
+num_workers rule: `gradient_gate/cache_places365.py` reads each of the
+62,050 needed images exactly ONCE, resizes to 144x144 (kept larger than
+the final 96x96 training resolution to leave real room for
+RandomResizedCrop), and saves the whole subsample as two single tensor
+files (`train_cache.pt`, `val_cache.pt`, ~3-4GB combined, comfortably
+fits the per-file size budget and RAM). Added `CachedPlaces365` to
+`run_places365_dynamics.py`: loads one tensor file once, serves images via
+pure in-memory indexing, applies the identical augmentation
+(`RandomResizedCrop(96, scale=(0.7,1.0))` + flip for train,
+resize-only for val) directly on tensors via torchvision's tensor-mode
+transforms -- same augmentation semantics, zero further disk I/O per
+epoch. Verified each piece before trusting it: (a) the dataset-class
+mechanics on a synthetic fake cache (correct output shapes/dtypes), (b)
+the real PIL-loading+resize logic on 10 real images from 2 actual classes
+(0.48s for 10 images = ~20.8 images/s, confirming the per-file read itself
+isn't catastrophically slow in isolation -- the problem was paying that
+cost 200x instead of once), (c) clean imports of the new module and the
+updated `get_dataloaders(..., cache_dir=...)` path.
+
+Updated `run_places365_extract.sh`: a new Step 1.5 builds the cache (skip
+if already present, same `if [ ! -f ... ]` pattern as the extraction
+marker) before training, and Step 2 now passes `--cache-dir`. Estimated
+total budget: ~50min one-time caching (extrapolated from the 20.8
+images/s real-file test) + ~5h training (8 runs x ~37min, extrapolated
+from expected A100 ResNet-50 batch cost once data loading is no longer
+the bottleneck) -- comfortably within the 24h allocation, a complete
+reversal from the previous architecture's days-long infeasibility.
+**Resubmitted** under the same job script (new job ID to follow).
