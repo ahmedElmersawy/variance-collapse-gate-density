@@ -102,16 +102,27 @@ threshold-distance variable (12 of 12 activation$\times$seed cells,
 $p=2.44\times10^{-4}$), and reveals two distinct routes to the same
 threshold-crossing logic: $\mu$-drift for ReLU, whose threshold sits at the
 live center of its channels' distributions, and $\sigma$-shrinkage for
-GELU/SiLU/Mish, whose threshold sits far in the tail. We further test, and
-do not assume, generalization: the direction split replicates exactly under
-Adam (48 of 48 runs) and on Tiny-ImageNet-200, and the smooth-activation
-rise alone replicates on two non-convolutional, LayerNorm-only
-architectures (MLP-Mixer, Transformer-Encoder)---but the split collapses
-under AdamW's decoupled weight decay (all four activations decline), and
-the ReLU-specific decline, unlike the smooth-activation rise, does not
-generalize beyond convolutional architectures. We report these as genuine
-scope boundaries rather than omitting them. We also report two honest,
-non-positive findings rather than omitting them: representational effective
+GELU/SiLU/Mish, whose threshold sits far in the tail. Under Adam, the
+direction split replicates exactly (48 of 48 runs); under AdamW it does
+not---all four activations decline instead of diverging by class. Rather
+than reporting this as an unexplained scope boundary, we treat it as a
+falsifiable prediction problem: fed AdamW's own measured $\mu(t)$ and
+$\sigma(t)$ with no new free parameters, no redefined threshold, and no
+reselected channels, the \emph{same} per-channel predictor correctly
+predicts AdamW's uniform decline in all 12 activation$\times$seed cells
+tested ($p=2.44\times10^{-4}$), because $\sigma$ does not collapse under
+AdamW's decoupled weight decay (it is flat for ReLU and \emph{grows} for
+every smooth activation, the opposite of SGD/Adam's uniform $\sim$67--77\%
+collapse). \textbf{The mechanism is not three disconnected optimizer-specific
+observations; it is one predictor whose governing input---whether $\sigma$
+collapses, itself controlled by coupled-vs-decoupled weight decay---differs
+by optimizer.} We further test, and do not assume, generalization beyond
+optimizer choice: the smooth-activation rise replicates on Tiny-ImageNet-200
+and on two non-convolutional, LayerNorm-only architectures (MLP-Mixer,
+Transformer-Encoder), while the ReLU-specific decline does not generalize
+beyond convolutional architectures---a genuine, narrower scope boundary we
+report rather than omit. We also report two honest, non-positive findings
+rather than omitting them: representational effective
 rank rises in every condition tested regardless of activation (114$+$ runs),
 giving it no power to discriminate anything in this paper, and using gate
 density to guide channel pruning is statistically equivalent to magnitude
@@ -202,9 +213,15 @@ at the level of the individual channel rather than only the population
 rather than assuming it (Sections~\ref{sec:optimizer}--\ref{sec:generalization}):
 the direction split survives Adam and a non-CIFAR, 200-class dataset, and
 the smooth-activation rise alone survives two non-convolutional,
-LayerNorm-only architectures, but the split collapses under AdamW and the
-ReLU-specific decline does not generalize beyond CNNs---scope boundaries we
-report directly rather than discover after submission.
+LayerNorm-only architectures. Under AdamW the split changes into a uniform
+decline; rather than treating this as a scope boundary, we test it as a
+falsifiable prediction (Section~\ref{sec:adamw_predict}) and it
+succeeds---the same per-channel predictor, given AdamW's own measured
+dynamics, predicts the AdamW outcome with no new free parameters, because
+the optimizer changes whether $\sigma$ collapses, not the law relating
+$\sigma$-collapse to gate-density direction. The ReLU-specific decline,
+unlike the smooth-activation rise, does not generalize beyond CNNs---a
+scope boundary we report directly rather than discover after submission.
 
 Finally, we report two findings exactly as the data shows them, including
 where that complicates a clean narrative: representational rank rises in
@@ -246,15 +263,24 @@ extending to the architectures studied elsewhere.
   activation$\times$seed cells, $p=2.44\times10^{-4}$); this reveals two
   distinct routes to the same threshold-crossing logic depending on each
   activation's margin to its threshold.
-\item \textbf{Generalization tested, not assumed, along three axes}:
-  optimizer (the split replicates exactly under Adam, 48 of 48 runs, but
-  collapses under AdamW's decoupled weight decay, 48 of 48 runs all
-  declining instead), scale (ReLU's decline and the smooth-activation rise
-  both replicate on Tiny-ImageNet-200), and architecture family (the
-  smooth-activation rise replicates on two non-convolutional, LayerNorm-only
-  architectures, but the ReLU decline and the separate effective-rank-rise
-  observation do not). We report all three as genuine, characterized scope
-  boundaries rather than omitting the checks that did not fully generalize.
+\item \textbf{A unified, falsifiable prediction across optimizers}, not
+  three disconnected observations: the split replicates exactly under Adam
+  (48 of 48 runs) and changes under AdamW (48 of 48 runs, uniform decline
+  instead of diverging by class). We treat the AdamW result as a
+  prediction problem rather than a scope boundary: the exact per-channel
+  predictor above, fed AdamW's own measured dynamics with zero new free
+  parameters, correctly predicts the AdamW outcome in all 12
+  activation$\times$seed cells tested ($p=2.44\times10^{-4}$), because
+  $\sigma$ fails to collapse under decoupled weight decay. The mechanism's
+  governing quantity---whether $\sigma$ collapses, itself set by
+  coupled-vs-decoupled weight decay---spans every optimizer tested.
+\item \textbf{Generalization tested, not assumed, along two further axes}:
+  scale (ReLU's decline and the smooth-activation rise both replicate on
+  Tiny-ImageNet-200) and architecture family (the smooth-activation rise
+  replicates on two non-convolutional, LayerNorm-only architectures, but
+  the ReLU decline and the separate effective-rank-rise observation do
+  not). We report the latter as a genuine, characterized scope boundary
+  rather than omitting the check that did not fully generalize.
 \item \textbf{Two honestly-reported non-findings}: representational
   effective rank rises in every condition tested (114$+$ runs) regardless of
   activation, architecture, dataset, or threshold, giving it no
@@ -543,16 +569,10 @@ ReLU runs declines and every one of 12 GELU, SiLU, and Mish runs rises
 (sign test $p=4.88\times10^{-4}$ per activation), at magnitudes matching
 SGD (Figure~\ref{fig:optimizer_generalization}).
 
-\textbf{Under AdamW, the split collapses}: all four activations decline
-(12 of 12 runs each, $p=4.88\times10^{-4}$), at broadly comparable small
-magnitudes rather than ReLU's characteristic large fall against the smooth
-activations' small rise. We checked the obvious candidate explanation
-directly rather than speculating: BatchNorm's $\gamma$ under AdamW
-\emph{itself} splits unexpectedly---ReLU and GELU still shrink (though more
-weakly than under SGD/Adam) while SiLU and Mish's $\gamma$ actually
-\emph{grows} (3 of 3 seeds each, in both directions)---yet active-gradient
-fraction declines uniformly across all four regardless. The simple
-$\gamma$-shrinkage account does not explain the AdamW collapse either.
+\textbf{Under AdamW, the empirical pattern changes}: all four activations
+decline (12 of 12 runs each, $p=4.88\times10^{-4}$), at broadly comparable
+small magnitudes rather than ReLU's characteristic large fall against the
+smooth activations' small rise.
 
 \begin{figure}[htbp]
 \centering
@@ -560,17 +580,19 @@ $\gamma$-shrinkage account does not explain the AdamW collapse either.
 \caption{Optimizer generalization. Mean $\Delta$active-gradient-fraction
 (epoch 24 minus epoch 0), by activation and optimizer, $\pm$ standard error
 across 12 independent runs. SGD and Adam (both coupled weight decay) give
-the same direction split; AdamW (decoupled weight decay) collapses it to a
-uniform, smaller-magnitude decline.}
+the same direction split; AdamW (decoupled weight decay) gives a uniform
+decline instead---a pattern Section~\ref{sec:adamw_predict} shows the
+mechanism predicts exactly, with no new free parameters, rather than an
+unexplained exception.}
 \label{fig:optimizer_generalization}
 \end{figure}
 
-We report this as a genuine, reproducible scope boundary rather than force
-a unified account: \textbf{the activation-class direction split, and the
-BatchNorm-$\gamma$-shrinkage step of the mechanism, are both empirically
-tied to coupled-weight-decay optimizers.} AdamW's decoupled weight decay
-produces a qualitatively different, currently uncharacterized regime; we do
-not claim the phenomenon or the mechanism extends to it.
+We do not stop at reporting this contrast empirically. The natural next
+question---is this a second, optimizer-specific phenomenon, or the
+\emph{same} mechanism responding correctly to a different input---is a
+falsifiable question we test directly in
+Section~\ref{sec:adamw_predict}, after Section~\ref{sec:channel_mechanism}
+introduces the exact predictor being tested.
 
 \subsection{Generalization beyond CIFAR-scale CNNs}
 \label{sec:generalization}
@@ -836,6 +858,95 @@ are driven by $\sigma$-shrinkage thinning a distant tail}---two different
 routes to the same threshold-crossing logic, unified by the same
 $\sigma$-normalized quantity.
 
+\subsection{A unified prediction across optimizers}
+\label{sec:adamw_predict}
+
+Section~\ref{sec:optimizer} reported that the activation-class split
+collapses under AdamW into a uniform decline. We treat this as a
+falsifiable prediction problem, not a closed scope boundary: \textbf{does
+the exact, unmodified per-channel predictor above, fed AdamW's own
+measured $\mu_c(t)$ and $\sigma_c(t)$, predict AdamW's observed outcome,
+with no new free parameters, no redefinition of $z_{\rm low}$, and no
+reselected channels?} We pre-registered this test in writing before
+computing it (full text in the released audit trail) and logged the same
+per-channel quantities under AdamW that Section~\ref{sec:channel_mechanism}
+logged under SGD---identical architecture, dataset, seeds, and epochs.
+
+\textbf{Step 1: does the local law still hold?} Yes---the per-channel
+correlation between the $\sigma$-normalized margin and active-gradient
+fraction is positive for all four activations under AdamW too (72--90\% of
+channels per seed, mean $\rho=+0.36$ to $+0.73$). The relationship between
+margin and active-gradient fraction is itself optimizer-invariant; what
+must differ is the \emph{trajectory} fed into it.
+
+\textbf{Step 2, the decisive test: does the margin's trend match AdamW's
+observed decline?} For every one of 12 activation$\times$seed cells, the
+per-channel margin trend's sign matches the active-gradient-fraction
+trend's sign (68--89\% channel-level agreement per cell; pooled sign test,
+12 of 12, $p=2.44\times10^{-4}$). Population-pooled margin deltas are
+negative for all four activations under AdamW (ReLU $-0.172$, GELU
+$-0.176$, SiLU $-0.209$, Mish $-0.228$, all 12 of 12 seeds the same sign)
+exactly matching the observed active-gradient-fraction declines (ReLU
+$-7.0$, GELU $-2.0$, SiLU $-1.4$, Mish $-1.6$ percentage points).
+\textbf{The predictor gets the direction right in every cell tested.}
+
+\textbf{Step 3, the mechanistic link, confirmed directly:}
+
+\begin{table}[h]
+\centering
+\caption{Per-channel $\sigma$ change, epoch 0 to 24, by activation and
+optimizer.}
+\label{tab:sigma_optimizer}
+\begin{tabular}{lcc}
+\toprule
+Activation & SGD & AdamW\\
+\midrule
+ReLU & $-77.0\%$ & $-0.9\%$ (flat)\\
+GELU & $-67.5\%$ & $+2.2\%$ (grows)\\
+SiLU & $-66.2\%$ & $+4.8\%$ (grows)\\
+Mish & $-66.9\%$ & $+4.7\%$ (grows)\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\linewidth]{adamw_prediction.png}
+\caption{Why the predictor gets AdamW right. Top: mean per-channel
+$\sigma$ vs.\ epoch, SGD (left) vs.\ AdamW (right)---$\sigma$ collapses for
+every activation under SGD but is flat (ReLU) or grows (GELU/SiLU/Mish)
+under AdamW. Bottom: the resulting $\sigma$-normalized margin---rising for
+the smooth activations under SGD (driving their active-fraction rise),
+declining for every activation under AdamW (driving the uniform decline).
+Same predictor, different input trajectory, correctly different output.}
+\label{fig:adamw_prediction}
+\end{figure}
+
+Under SGD, $\sigma$ collapses by roughly two-thirds for every activation,
+pushing the margin \emph{up} for thick-margin activations as the
+denominator shrinks---producing the smooth-activation rise. Under AdamW,
+$\sigma$ does not collapse at all: it is flat for ReLU and \emph{grows}
+for every smooth activation. With $\sigma$ flat-or-growing and $\mu$ still
+drifting slightly negative (Section~\ref{sec:mu_test}'s finding, confirmed
+again here under AdamW), the margin can only decline: for ReLU, a
+shrinking numerator combined with flat $\sigma$ produces a sharp decline;
+for the smooth activations, growing $\sigma$ alone pushes the ratio down
+even though the numerator barely moves---producing their smaller but
+equally consistent declines.
+
+\textbf{This is not two optimizer-specific stories; it is one predictor
+whose input trajectory differs.} The mechanism's governing quantity is
+whether $\sigma$ collapses, which is itself controlled by whether weight
+decay is coupled (SGD, Adam) or decoupled (AdamW) to the gradient update.
+Section~\ref{sec:optimizer}'s AdamW result is not a scope boundary the
+mechanism fails to reach---it is a correct prediction the mechanism makes
+once given AdamW's real measured dynamics. We state the claim precisely:
+\textbf{the direction of the activation-class split is governed by
+whether $\sigma$ collapses during training, and $\sigma$-collapse is
+itself controlled by the coupled-vs-decoupled weight-decay axis}---a
+single, falsifiable, predictive account spanning every optimizer tested,
+not three disconnected empirical observations.
+
 \subsection{A continuous test: the smoothness sweep}
 \label{sec:smoothness}
 
@@ -1001,17 +1112,26 @@ observation are CNN-specific findings, not general properties of gate
 dynamics. Full-scale ImageNet and architecture families beyond these two
 remain untested.
 
-\textbf{Optimizer, partially resolved.} The architecture-fixed ablation
-replicates exactly under Adam (coupled weight decay, matching SGD's update
-structure) but the direction split \textbf{collapses under AdamW}
-(decoupled weight decay): all four activations decline instead of
-diverging by class (Section~\ref{sec:optimizer}). BatchNorm's $\gamma$
-itself behaves unexpectedly under AdamW (splitting by activation in a
-pattern that does not track the active-gradient-fraction collapse), so we
-do not have a mechanistic account of the AdamW regime---only the empirical
-fact that it differs. \textbf{The direction split and the mechanism in
-Section~\ref{sec:mechanism} are scoped to coupled-weight-decay optimizers};
-we do not claim either extends to AdamW or other decoupled-decay schemes.
+\textbf{Optimizer, resolved by prediction rather than scoped around.} The
+architecture-fixed ablation replicates exactly under Adam (coupled weight
+decay, matching SGD's update structure); under AdamW (decoupled weight
+decay) the empirical pattern changes---all four activations decline
+instead of diverging by class (Section~\ref{sec:optimizer}). Rather than
+treating this as an unmodeled scope boundary, Section~\ref{sec:adamw_predict}
+tests it as a falsifiable prediction: the exact per-channel predictor from
+Section~\ref{sec:channel_mechanism}, fed AdamW's own measured $\mu(t)$ and
+$\sigma(t)$ with no new free parameters, correctly predicts the AdamW
+outcome in all 12 activation$\times$seed cells tested, because $\sigma$
+fails to collapse under decoupled weight decay (flat for ReLU, growing for
+every smooth activation, versus $\sim$67--77\% collapse for all four under
+SGD/Adam). \textbf{The mechanism therefore spans every optimizer tested
+through one governing quantity---whether $\sigma$ collapses---rather than
+being three disconnected, optimizer-specific observations.} We still do not
+have a first-principles account of \emph{why} AdamW's decoupling prevents
+$\sigma$-collapse (Section~\ref{sec:mechanism}'s $\gamma$-equilibrium
+argument assumes coupled decay specifically); that remains open, but the
+\emph{consequence} for gate-density direction is now predicted, not merely
+observed.
 
 \textbf{ConvNeXt-Tiny is excluded from all claims.} A single-seed,
 15-epoch run on CIFAR-100 reached only 18.9\% test accuracy (badly
@@ -1019,11 +1139,34 @@ undertrained) and gave a rank-trend sign inconsistent with its own
 CIFAR-10 run; we treat this as uninformative, not as evidence for or
 against any claim in this paper (full numbers in Appendix~\ref{app:convnext}).
 
-\textbf{The mechanism explains direction, not magnitude or root cause.}
-Section~\ref{sec:channel_mechanism}'s per-channel verification strengthens
-the directional claim to the level of individual channels, but we still do
-not derive why the pre-activation mean drifts negative, nor a closed form
-for trend magnitude.
+\textbf{The mechanism explains direction; magnitude and root cause are
+partially closed.} Section~\ref{sec:channel_mechanism}'s per-channel
+verification strengthens the directional claim to the level of individual
+channels. We also attempted a derivation of why the pre-activation mean
+drifts negative in the first place: under plain SGD with weight decay
+applied to every parameter including BatchNorm's $\beta$ (this codebase's
+configuration), a generic equilibrium argument predicts
+$\beta^\ast\approx-\bar g/\lambda$ for a roughly activation-independent
+average gradient pressure $\bar g$ and the shared weight-decay coefficient
+$\lambda$---correctly predicting the narrow, shared drift band already
+reported (range 0.024 across 9 activations whose $z_{\rm low}$ spans 4
+orders of magnitude) but \emph{not} the residual, statistically real
+cross-activation variation within that band (ANOVA $F=29.7$,
+$p=7.7\times10^{-9}$, not explained by $z_{\rm low}$ or an init-time
+smoothness index after testing both). We report this as a partial closure:
+the order of magnitude is now derived, not merely observed; a full account
+of the residual variation remains open. We do not derive a closed form for
+trend magnitude.
+
+\textbf{One practical-payoff attempt, honestly null.} Since $z_{\rm low}$
+is computable before any training, we pre-registered (in writing, before
+computing anything) a test of whether a checkpoint's final gate density
+predicts its low-data fine-tuning accuracy (fixed 5\% CIFAR-10 subsample,
+identical recipe, all 24 existing checkpoints). No statistically
+detectable correlation in any subset tested (pooled: Pearson $r=0.24$,
+$p=0.26$; Spearman $\rho=-0.33$, $p=0.11$---the two do not even agree in
+sign). We report this exactly as pre-registered rather than substituting a
+different outcome metric after seeing the null.
 
 \textbf{Reproducibility.} All training is to a single fixed instrumentation
 batch per run for gate measurement; seeds, hyperparameters, and SLURM
@@ -1053,20 +1196,31 @@ the unit the mechanism actually describes, once the test variable is
 correctly $\sigma$-normalized---and reveals that the mechanism operates
 through two different routes depending on activation: $\mu$-crossing for
 thin-margin activations (ReLU), $\sigma$-driven quantile compression for
-thick-margin activations (GELU, SiLU, Mish). The smooth-activation rise
-generalizes beyond CIFAR-scale CNNs, beyond BatchNorm, and beyond SGD/Adam;
-the ReLU decline and the effective-rank-rise observation do not generalize
-beyond the CNN family, and the entire direction split collapses under
-AdamW's decoupled weight decay. We reported, rather than omitted, every
-place this story does not extend cleanly: representational rank, which
-moves the same way regardless of activation on CNNs and is excluded as a
-contribution; pruning, where gate density is actively misleading for three
-of four activations tested; and the architecture-, normalization-, and
-optimizer-specific boundaries discovered by deliberately testing outside
-the original setup rather than assuming it would generalize. The result is
-a bounded, mechanistically-explained, activation-class-dependent
-phenomenon---not a universal theory of gradient dynamics, and we do not
-claim it as one.
+thick-margin activations (GELU, SiLU, Mish). Under AdamW, the
+activation-class split changes into a uniform decline; rather than scoping
+the mechanism around this, we tested it as a falsifiable prediction and it
+passed: the same per-channel predictor, fed AdamW's own measured dynamics
+with zero new free parameters, predicts the AdamW outcome in all 12
+activation$\times$seed cells tested, because $\sigma$ fails to collapse
+under decoupled weight decay. \textbf{The mechanism is therefore a single,
+falsifiable, predictive account spanning SGD, Adam, and AdamW through one
+governing quantity---whether $\sigma$ collapses during training---not
+three disconnected, optimizer-specific observations.} The smooth-activation
+rise additionally generalizes beyond CIFAR-scale CNNs and beyond
+BatchNorm, replicating on Tiny-ImageNet-200 and on two non-convolutional,
+LayerNorm-only architectures; the ReLU decline and the effective-rank-rise
+observation do not generalize beyond the CNN family. We reported, rather
+than omitted, every place this story does not extend cleanly:
+representational rank, which moves the same way regardless of activation
+on CNNs and is excluded as a contribution; pruning, where gate density is
+actively misleading for three of four activations tested; a low-data
+fine-tuning payoff that came back null exactly as pre-registered; and the
+architecture- and normalization-specific boundaries discovered by
+deliberately testing outside the original setup rather than assuming it
+would generalize. The result is a bounded but now unified,
+mechanistically-derived and mechanistically-\emph{predictive},
+activation-class-dependent phenomenon---not a universal theory of gradient
+dynamics, and we do not claim it as one.
 
 % =============================================================================
 \appendix

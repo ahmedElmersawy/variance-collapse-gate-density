@@ -146,7 +146,40 @@ def fig_scale_and_architecture():
     print("wrote", out)
 
 
+def fig_adamw_prediction():
+    sgd = pd.read_csv(os.path.join(CSV, "channel_mechanism.csv"))
+    adamw = pd.read_csv(os.path.join(CSV, "channel_mechanism_adamw.csv"))
+    zlow_sgd = pd.read_csv(os.path.join(CSV, "channel_mechanism_zlow.csv")).set_index("activation")["z_low"]
+    zlow_adamw = pd.read_csv(os.path.join(CSV, "channel_mechanism_adamw_zlow.csv")).set_index("activation")["z_low"]
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 7))
+    for name, df, zlow, ls in [("SGD", sgd, zlow_sgd, "-"), ("AdamW", adamw, zlow_adamw, "--")]:
+        df = df.copy()
+        df["zscore"] = df.apply(lambda r: (r.mu - zlow[r.activation]) / r.sigma if r.sigma > 0 else np.nan, axis=1)
+        sigma_agg = df.groupby(["activation", "epoch"]).sigma.mean().reset_index()
+        margin_agg = df.groupby(["activation", "epoch"]).zscore.mean().reset_index()
+        for act in ACT_ORDER:
+            s = sigma_agg[sigma_agg.activation == act].sort_values("epoch")
+            m = margin_agg[margin_agg.activation == act].sort_values("epoch")
+            axes[0, 0 if name == "SGD" else 1].plot(s.epoch, s.sigma, ls, color=ACT_COLOR[act], label=act.upper())
+            axes[1, 0 if name == "SGD" else 1].plot(m.epoch, m.zscore, ls, color=ACT_COLOR[act], label=act.upper())
+
+    axes[0, 0].set_title("SGD: sigma"); axes[0, 1].set_title("AdamW: sigma")
+    axes[1, 0].set_title("SGD: z-score margin"); axes[1, 1].set_title("AdamW: z-score margin")
+    for ax in axes[0]: ax.set_ylabel("mean per-channel sigma")
+    for ax in axes[1]: ax.set_ylabel("mean z-score margin"); ax.set_xlabel("epoch")
+    axes[0, 0].axhline(0, color="gray", lw=0.5); axes[0, 1].axhline(0, color="gray", lw=0.5)
+    axes[1, 0].axhline(0, color="black", lw=0.8); axes[1, 1].axhline(0, color="black", lw=0.8)
+    axes[0, 1].legend(fontsize=8, loc="upper right")
+    fig.suptitle("Why the predictor gets AdamW right: sigma collapses under SGD, not under AdamW")
+    fig.tight_layout()
+    out = os.path.join(FIG, "adamw_prediction.png")
+    fig.savefig(out, dpi=160)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     fig_optimizer_generalization()
     fig_channel_mechanism()
     fig_scale_and_architecture()
+    fig_adamw_prediction()
