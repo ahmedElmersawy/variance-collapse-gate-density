@@ -1,3 +1,115 @@
+# Upgrade Summary: NeurIPS-8 Revision (Task A-D)
+
+This section documents the most recent campaign, run on top of the P1-P4
+campaign documented below. **Headline result: Task A succeeded.** The
+AdamW "collapse" reported in the P1-P4 campaign (see the superseded bullet
+in that section, left in place but corrected below) is no longer an
+unexplained scope boundary -- it is a successful, falsifiable prediction
+of the same mechanism, fed AdamW's real measured dynamics.
+
+## Task A (highest priority): does the mechanism predict the AdamW anomaly?
+
+**Pre-registered in writing** (`RESULTS_LOG.md`) before computing anything:
+hypothesis, exact predictor (the unmodified sigma-normalized margin from
+the SGD per-channel result), and the precise meaning of "predicts
+correctly," all fixed in advance. No redefinition of `z_low`, no
+reselected channels, no new free parameters were used at any point.
+
+**Result: the predictor succeeds completely.**
+1. The local law (margin correlates with active_frac) holds under AdamW
+   too (72-90% of channels per seed, all four activations).
+2. The decisive test -- does the margin's *trend* match AdamW's observed
+   uniform decline -- passes for 12/12 activation×seed cells
+   ($p=2.44\times10^{-4}$).
+3. The mechanistic link is direct, not inferred: per-channel sigma shrinks
+   ~67-77% under SGD for every activation, but is flat (ReLU, $-0.9\%$) or
+   **grows** (GELU $+2.2\%$, SiLU $+4.8\%$, Mish $+4.7\%$) under AdamW.
+   With $\mu$ still drifting negative and sigma no longer collapsing, the
+   margin can only decline -- exactly what is observed, for every
+   activation, in every seed.
+
+**This is not three disconnected optimizer-specific findings; it is one
+predictor whose input trajectory differs.** The governing quantity is
+whether sigma collapses, itself controlled by coupled (SGD, Adam) vs.
+decoupled (AdamW) weight decay. This is now the paper's headline result,
+not a caveat -- the abstract, intro, contributions list, a new Section 5.5
+(`sec:adamw_predict`), and the Discussion were all rewritten around it.
+
+## Task B: why does mu drift negative? (partial closure)
+
+A generic SGD+L2-equilibrium argument ($\theta^\ast \approx -\bar g/\lambda$
+for a roughly activation-independent average gradient pressure $\bar g$
+and the shared weight-decay coefficient $\lambda$ -- a different argument
+from the gamma mechanism's scale-invariance logic, since beta has no
+multiplicative symmetry to exploit) correctly predicts the narrow, shared
+drift band already reported (range 0.024 across 9 activations whose
+`z_low` spans 4 orders of magnitude). It does **not** explain the residual,
+statistically real cross-activation variation within that band (one-way
+ANOVA $F=29.7$, $p=7.7\times10^{-9}$) -- tested and ruled out two natural
+candidates (`z_low`, an init-time smoothness index) as the source, then
+stopped rather than fishing for a third. Reported as a partial closure:
+order of magnitude now derived, residual variation still open.
+
+## Task C: scale beyond Tiny-ImageNet
+
+ImageNet-1k checked and confirmed gated (registration/ToS acceptance
+required, no anonymous scriptable download) -- a genuine external access
+blocker, not bypassed. Chose Places365-Standard instead: freely,
+anonymously downloadable (no registration), 365 scene classes, native
+256x256 resolution (downsampled to 96x96 here -- still 2.25x the linear
+resolution of the Tiny-ImageNet experiment), real photographs. Downloaded
+26.7GB to `/scratch/gilbreth/aelmersa/places365/` (not `/home`, which has
+only a 25GB quota). Full blind extraction of all ~1.84M images proved far
+too slow for this filesystem's small-file write overhead (~70 minutes for
+13% progress); switched to a targeted extraction of exactly the
+150-train/20-val-per-class subsample the experiment design calls for
+(62,050 of 1.84M files, the first 150 sequentially-numbered images per
+train class plus the full val set -- a fixed, deterministic, documented
+selection).
+
+**Infrastructure correction**: that targeted extraction was found running
+as an unsupervised background process directly on the shared login node
+(3h11m, 95% CPU) -- a real violation of this project's own
+SLURM-for-multi-hour-work rule. Killed it and moved it into a proper
+SLURM job (`run_places365_extract.sh`), combined with the training step
+since this partition rejects GPU-less job submissions outright (so a
+second, separate GPU allocation just for extraction would be wasteful).
+**Job 11077301** (24h budget) is running as of this writing -- see
+`RESULTS_LOG.md` for the live status; this section will be updated with
+final results once it completes.
+
+## Task D: one practical-payoff attempt, honestly null
+
+**Pre-registered in writing** before computing anything: predictor (final
+active_frac, already known from existing checkpoints), outcome (test
+accuracy after fine-tuning on a fixed, seeded 5%-CIFAR-10 subsample,
+identical recipe for all 24 checkpoints regardless of original optimizer),
+and the exact test (Pearson/Spearman, pooled and per-optimizer-subset).
+
+**Result: no statistically detectable correlation in any subset** (pooled:
+Pearson $r=0.24$, $p=0.26$; Spearman $\rho=-0.33$, $p=0.11$ -- the two
+do not even agree in sign, consistent with no real effect rather than an
+underpowered one). Reported exactly as pre-registered; did not substitute
+a different outcome metric (e.g. accuracy drop instead of post-finetune
+accuracy) after seeing the null, which would have been exactly the
+p-hacking the guardrails prohibit.
+
+## Synthetic appendix: missing-artifact and retired-claim language removed
+
+Cut the unconfirmed MNIST-generalization paragraph entirely (required a
+now-absent TensorFlow dependency; figure and CSV could not be located).
+Removed the "could not be located... only the spatial illustration is
+unavailable" disclosure from the spatial-gate paragraph, keeping its
+quantitative claims (already independently verified from
+`grad_sparsity_all_optimizers.csv`) stated directly. Simplified the
+predictive-difficulty-model caption to state the cross-validated result
+without referencing the superseded earlier-draft number. Left one
+"retired" reference in place (a 4-parameter Fisher-information fit
+abandoned for an ill-conditioned matrix) since that is a legitimate,
+transparent statistical-methodology disclosure, not an unverifiable claim.
+
+---
+
 # Upgrade Summary: P1-P4 Campaign
 
 Written for a skeptical reviewer. What was run, what survived, what didn't,
@@ -35,13 +147,15 @@ All 6 jobs completed successfully (`sacct`: exit 0:0, empty `.err` files).
 
 ## What didn't survive, and was rescoped honestly
 
-- **AdamW collapses the split.** All four activations decline under AdamW
-  (12/12 each, $p=4.88\times10^{-4}$) instead of diverging by class.
-  BatchNorm's $\gamma$ itself splits unexpectedly under AdamW (relu/gelu
-  still shrink; silu/mish grow) without explaining the uniform collapse.
-  **The direction split and the mechanism are now scoped explicitly to
-  coupled-weight-decay optimizers** — this is stated in the abstract,
-  Section 4.5, and the Discussion, not buried.
+- **AdamW collapses the split** — *superseded, see the Task A section above
+  this one.* At the time this bullet was written, all four activations
+  declining under AdamW (12/12 each) looked like an unexplained scope
+  boundary, and BatchNorm $\gamma$'s own unexpected split (relu/gelu
+  shrink; silu/mish grow) didn't explain it. The follow-on campaign tested
+  this as a falsifiable prediction instead of a boundary and found the
+  exact per-channel predictor, fed AdamW's real measured dynamics,
+  predicts the collapse correctly with zero new parameters. **This is now
+  the paper's headline result, not a limitation.**
 - **The ReLU decline does not generalize beyond CNNs.** In MLP-Mixer, ReLU
   rises (5/6 seeds) instead of declining. In the Transformer-Encoder it is
   small and dataset-dependent, nothing like the CNN's large, robust decline.

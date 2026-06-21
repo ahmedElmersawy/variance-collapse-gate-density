@@ -603,3 +603,75 @@ Csvs: `channel_mechanism_adamw.csv`, `channel_mechanism_adamw_zlow.csv`,
 reuses `build_optimizer`); analysis via the EXISTING, unmodified
 `gradient_gate/analyze_channel_mechanism.py --data
 channel_mechanism_adamw.csv --zlow channel_mechanism_adamw_zlow.csv`.
+
+### TASK D RESULT: a genuine null, reported exactly as pre-registered
+
+**Job 11074418 completed**: all 24 checkpoints fine-tuned on the fixed,
+seeded 5%-CIFAR-10 subsample (2,500 images), identical recipe (SGD,
+lr=0.01, 5 epochs) regardless of original optimizer. Merged with each
+checkpoint's already-known final active_frac
+(`lowdata_finetune_merged.csv`).
+
+**Pre-registered test, computed exactly as written, no exclusions, no
+metric changes after seeing the result**:
+
+| subset | n | Pearson r | p | Spearman rho | p |
+|---|---|---|---|---|---|
+| all 24 | 24 | 0.241 | 0.258 | $-0.332$ | 0.113 |
+| AdamW only | 12 | 0.445 | 0.147 | 0.077 | 0.812 |
+| SGD only | 12 | 0.246 | 0.441 | $-0.203$ | 0.527 |
+
+**No statistically detectable correlation in any subset, and Pearson and
+Spearman do not even agree in sign on the pooled set** -- consistent with
+no real relationship rather than a weak true effect being underpowered.
+Reporting this as a genuine null exactly as pre-registered: at the design
+tested (final population-level active_frac vs.\ post-fine-tune accuracy
+on a fixed 5\% CIFAR-10 subsample), gate density level does not predict
+low-data fine-tuning performance. Did not pivot to a different outcome
+metric (e.g.\ accuracy drop instead of post-finetune accuracy) after
+seeing this -- the pre-registration fixed the metric as post-fine-tune
+test accuracy, and that is what is reported, regardless of the null
+result. Csvs: `lowdata_finetune.csv`, `lowdata_finetune_merged.csv`.
+Script: `gradient_gate/run_lowdata_finetune.py`.
+
+### Task C: infrastructure fix -- the Places365 extraction was running improperly on the login node
+
+On resuming this session, found the targeted Places365 extraction
+(`tar -xf places365standard_easyformat.tar -T /tmp/places_needed.txt`,
+mentioned as in-progress in `UPGRADE_SUMMARY.md`) running as a bare
+background process directly on the shared LOGIN NODE, PID 344622, for
+3h11m at 95% CPU -- a clear, real violation of this project's own
+environment rule (SLURM for anything multi-hour, never an unsupervised
+background process on a node shared by dozens of other interactive users
+running their own VS Code/Cursor remote servers). Checked progress before
+acting: `/proc/<pid>/io` showed `rchar`=8.67GB of the 26.7GB archive
+(~32% through, after accounting for page-cache reads from the earlier
+abandoned full-blind-extraction attempt), and 166 of 167 train class
+directories created so far already had >=150 images each -- real,
+salvageable progress, but at this rate ~6-7 more hours were needed, all of
+it improperly placed.
+
+**Fixed**: killed PID 344622 (`kill -15`, confirmed dead). Copied
+`/tmp/places_needed.txt` to a stable location
+(`/scratch/.../places365/places_needed.txt`) since `/tmp` on this cluster
+is shared/sticky-bit and not reliable for anything that needs to persist
+(an established lesson from earlier in this project). Confirmed the
+needed-file list's train entries are deterministic -- the first 150
+sequentially-numbered images per class (`00000001.jpg`..`00000150.jpg`),
+not a claimed random sample -- so it is exactly reproducible and safe to
+document precisely.
+
+This partition rejects CPU-only job submissions outright
+(`sbatch: error: Job rejected: No GPUs requested.`) -- every job here must
+request `--gres=gpu:1`. Rather than waste a separate multi-hour GPU
+allocation purely on extraction, combined extraction and training into one
+job (`run_places365_extract.sh`): extraction first (`tar -k` to skip
+already-extracted files from the killed attempt without re-writing them),
+then immediately `run_places365_dynamics.py` on the same GPU allocation.
+2 seeds (feasible within a 24h budget once combined), 4 activations, 25
+epochs, SGD. Smoke-tested `Places365Subset` against the currently-partial
+val data before submitting (7,300 val samples = 365 x 20 exactly, correct
+[3,96,96] shape, 365 classes resolved) -- passed.
+
+**Job 11077301 submitted**, 24h budget, `a100-80gb` partition. This is a
+multi-hour job; will check back on completion rather than poll.
