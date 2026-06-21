@@ -32,7 +32,15 @@ export PYTHONUNBUFFERED=1
 # earlier partial attempt without erroring, a free, correct speedup.
 cd /scratch/gilbreth/aelmersa/places365
 if [ ! -f extraction_done.marker ]; then
-  tar -k -xf places365standard_easyformat.tar -T places_needed.txt
+  # `tar -k` exits 2 ("Cannot open: File exists") for every file it skips
+  # because it already exists -- confirmed by direct test before relying on
+  # this. That is the EXPECTED outcome here (we are deliberately re-running
+  # over partially-extracted data) not a real failure, but combined with
+  # `set -e` it would silently kill this script right after extraction and
+  # never reach training, burning the whole GPU allocation on nothing. `|| true`
+  # makes that expected, benign exit code non-fatal; the verification step
+  # immediately below is what actually catches a real extraction problem.
+  tar -k -xf places365standard_easyformat.tar -T places_needed.txt || true
   echo "=== verification: train classes with < 150 files ==="
   cd places365_standard/train
   under=0

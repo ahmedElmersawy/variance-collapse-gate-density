@@ -675,3 +675,78 @@ val data before submitting (7,300 val samples = 365 x 20 exactly, correct
 
 **Job 11077301 submitted**, 24h budget, `a100-80gb` partition. This is a
 multi-hour job; will check back on completion rather than poll.
+
+### Task C: a second real bug caught -- `tar -k` + `set -e` would have silently skipped training entirely
+
+User asked to check job health and the `.err` file. Found 22,334 lines of
+`tar: places365_standard/val/.../*.jpg: Cannot open: File exists` -- the
+expected, benign consequence of `-k` (--keep-old-files) skipping files
+already extracted from the earlier attempt. The real problem: verified
+directly (`tar -k -xf test.tar` on a file that already exists) that GNU
+tar exits with status 2 ("Exiting with failure status due to previous
+errors") in this situation, not 0. Combined with the script's `set -e`,
+this meant the SLURM script was about to abort immediately after the
+extraction line finished -- successfully extracting data, then dying
+before ever reaching the `run_places365_dynamics.py` training step. The
+job would have run for hours, shown `COMPLETED` or `FAILED` depending on
+exact timing, and produced **zero training data**, silently, with the
+only evidence being a `.err` file most runs would never look at this
+closely. Caught before that happened: job 11077301 was still mid-extraction
+(1h58m elapsed, 168/365 train classes seen) when checked, so it was killed
+(`scancel`) before reaching the failure point.
+
+**Fixed**: `tar -k ... || true` in `run_places365_extract.sh` -- the
+expected, benign exit code no longer aborts the script; the existing
+post-extraction verification step (counts train classes still short of
+150 images) is what actually catches a real extraction problem, not tar's
+own exit code. **Job 11078036 resubmitted** with the fix, same 24h budget.
+Confirmed before resubmitting that this is a real fix, not a guess: a
+local test (`tar -k -xf test.tar` on a pre-existing file in `/tmp`)
+reproduced the exact exit-code-2 behavior first.
+
+Also noted in passing: the fresh restart (dedicated SLURM compute node)
+reached 168/365 train classes in 1h58m, faster than the original
+login-node attempt's 167/365 in 3h11m -- consistent with the login node
+being genuinely contended by the dozens of other interactive users
+observed in `ps aux` earlier, beyond just being the wrong place to run
+this regardless of speed.
+
+### Task C: a third bug -- `cifar_resnet50` crashes on any non-default norm_layer call path
+
+**Job 11078036 result**: extraction succeeded completely this time (the
+`set -e` fix held) -- "train classes under 150: 0 / 365", confirmed every
+one of the 365 classes has its full 150-image quota, 7h13m for the
+extraction step. Training then crashed on the very first model
+construction: `TypeError: __init__() got an unexpected keyword argument
+'norm_layer'` in `Bottleneck.__init__`, called from
+`CifarResNet.__init__`'s block-construction loop, which unconditionally
+passes `norm_layer=norm_layer` to every block regardless of block type.
+`BasicBlock` (resnet18/vgg11's block) accepts and uses `norm_layer`
+correctly; `Bottleneck` (resnet50's block, used here for the first time
+since the GroupNorm-ablation work added the `norm_layer` parameter to
+`CifarResNet.__init__`) never had a matching parameter added -- a latent
+bug, not something Task C's own code introduced. Confirmed this is
+genuinely pre-existing and not something my changes broke: the published
+`training_dynamics.csv` ResNet-50/ReLU baseline (150 rows, max test_acc
+91.58\%) ran successfully, but necessarily before the `norm_layer`
+threading was added to `CifarResNet.__init__` -- resnet50 was never
+exercised again after that change, so the bug went unnoticed until now.
+
+**Fixed** in `gradient_gate/cifar_models.py`: added `norm_layer=_default_norm`
+to `Bottleneck.__init__`'s signature and replaced its three hardcoded
+`nn.BatchNorm2d(...)` calls with `norm_layer(...)`, mirroring `BasicBlock`'s
+existing pattern exactly. This is purely additive: the default
+(`_default_norm` = `nn.BatchNorm2d`) produces an identical module to the
+old hardcoded calls, so the already-published ResNet-50/ReLU baseline
+numbers are unaffected -- verified this reasoning, not just asserted it,
+by confirming `training_dynamics.csv`'s resnet50 rows are real and
+already complete. Direct unit test before resubmitting: built
+`cifar_resnet50(num_classes=365, act_layer=nn.GELU)`, ran a real
+forward+backward pass (output shape `(4, 365)` correct, backward
+succeeds, 24.2M params -- correct ResNet-50 scale) -- passed.
+
+**Job 11081101 resubmitted** (`extraction_done.marker` present, so this
+run skips straight to training). Three real bugs now caught and fixed in
+this one Task C sub-effort alone (login-node policy violation, `tar -k`
++ `set -e` silent-failure, `Bottleneck` missing `norm_layer`) -- each
+verified directly before being declared fixed, not assumed.
