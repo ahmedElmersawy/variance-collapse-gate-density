@@ -282,14 +282,13 @@ The 3-parameter sigmoid fit ($\mathrm{IoU}_{\max}$ fixed at 1.0) gives:
   \alpha^*=28.97,\quad
   \delta=6.29.
 \]
-The bootstrap median is $\alpha^*=28.83$ (95\% CI $[27.92,\,29.78]$).
-Earlier drafts reported $\alpha^*\approx11.7$ as an artefact of a bounded
-least-squares fit applied to a 6-point sparse grid whose densest coverage
-lay entirely within the subcritical plateau ($\mathrm{IoU}\equiv1.0$); the
-bound $\alpha^*\leq11.7$ was itself drawn from a preliminary estimate,
-making the result circular. With a 14-point grid extending to $\alpha=60$
-(20 independent seeds, 1000-resample bootstrap), the full sigmoid S-curve
-is observed and the above estimate is obtained.
+The bootstrap median is $\alpha^*=28.83$ (95\% CI $[27.92,\,29.78]$). A
+sparse grid concentrated within the subcritical plateau
+($\mathrm{IoU}\equiv1.0$) cannot resolve $\alpha^*$ reliably, since a
+bounded least-squares fit on plateau-only data is underdetermined; a
+14-point grid extending to $\alpha=60$ (20 independent seeds, 1000-resample
+bootstrap) is required to observe the full sigmoid S-curve and obtain the
+estimate above.
 
 \begin{figure}[htbp]
 \centering
@@ -493,8 +492,8 @@ $k=3$, silhouette$=0.722$):
   $\alpha$-insensitive; IoU degradation is moderate and stable.
 \end{itemize}
 
-The prior label ``plateau'' for Swish was incorrect; Swish clusters with GELU
-and Mish in the smooth group in all $k\geq2$ clusterings (silhouette-verified).
+Swish clusters with GELU and Mish in the smooth group in all $k\geq2$
+clusterings (silhouette-verified).
 
 \paragraph{Kernel Sensitivity.}
 
