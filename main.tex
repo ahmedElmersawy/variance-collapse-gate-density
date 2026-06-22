@@ -121,7 +121,10 @@ optimizer choice: the smooth-activation rise replicates on Tiny-ImageNet-200
 and on two non-convolutional, LayerNorm-only architectures (MLP-Mixer,
 Transformer-Encoder), while the ReLU-specific decline does not generalize
 beyond convolutional architectures---a genuine, narrower scope boundary we
-report rather than omit. We also report two honest, non-positive findings
+report rather than omit. On real photographs at a class count comparable to
+ImageNet-1k (ResNet-50 on a 365-class Places365 subsample, 2 seeds), the
+\emph{full} pattern---large ReLU decline, small smooth-activation
+rise---replicates exactly. We also report two honest, non-positive findings
 rather than omitting them: representational effective
 rank rises in every condition tested regardless of activation (114$+$ runs),
 giving it no power to discriminate anything in this paper, and using gate
@@ -616,6 +619,28 @@ power on this already-small effect even though the net direction is
 preserved. We report both statistics rather than the more favorable one
 alone (Appendix~\ref{app:repro} documents the exact comparison).
 
+A second, larger scale step uses real photographs rather than a curated
+benchmark: ResNet-50 (the same CIFAR-native stem family, $96\times96$
+input, $12\times12$ feature map before the global pool) on a fixed,
+seeded 150-train/20-val-per-class subsample of Places365-Standard
+(365 scene classes---comparable in class count to, and using real,
+uncurated photographs unlike, ImageNet-1k, which requires registration
+and has no anonymous scriptable download). 4 activations, 2 seeds
+(disclosed as 2, not the usual 3, for compute-budget reasons), 25 epochs.
+\textbf{Every seed-level check agrees with the established direction, by
+both the trend and net-displacement statistics}: ReLU declines (2 of 2
+seeds, $-6.7$ to $-8.3$ points) while GELU, SiLU, and Mish all rise (2 of
+2 seeds each, $+0.3$ to $+1.1$ points)---the same large-decline,
+small-rise asymmetry seen throughout this paper, not a different
+magnitude regime. Effective rank rises for \emph{all four} activations
+here (matching the CNN-specific pattern from
+Section~\ref{sec:rank_null}, unlike the architecture-dependent result
+below), consistent with ResNet-50 remaining a CNN. With only 2 seeds the
+sign test itself cannot exceed $p=0.5$, so we do not claim strong
+statistical power from this experiment alone; what it adds is a
+real-photograph, larger-class-count replication whose direction and
+magnitude both match every other CNN result in this paper.
+
 \textbf{Architecture family.} We built two CIFAR-native, activation-configurable,
 non-convolutional architectures with no BatchNorm anywhere---an
 MLP-Mixer~\cite{tolstikhin2021mixer} (8 mixer blocks) and a small
@@ -633,9 +658,13 @@ seeds, 25 epochs.
 $\Delta$active-gradient-fraction (epoch end minus start), pooled across
 datasets/seeds. ReLU's decline and the smooth-activation rise both replicate
 on Tiny-ImageNet-200 (left). On two non-convolutional, LayerNorm-only
-architectures (center, right), the smooth-activation rise still replicates,
-but ReLU's decline does not: ReLU rises in MLP-Mixer and is statistically
-indistinguishable from zero in the Transformer-Encoder.}
+architectures (center-left, center-right), the smooth-activation rise still
+replicates, but ReLU's decline does not: ReLU rises in MLP-Mixer and is
+statistically indistinguishable from zero in the Transformer-Encoder. On
+real photographs at larger class count (Places365, 365 classes, right), the
+full CNN pattern---large ReLU decline, small smooth-activation rise---
+replicates exactly, matching CIFAR/Tiny-ImageNet in both direction and
+relative magnitude.}
 \label{fig:generalization_scale_architecture}
 \end{figure}
 
@@ -1106,11 +1135,18 @@ two non-convolutional, LayerNorm-only architectures (MLP-Mixer,
 Transformer-Encoder), the smooth-activation rise replicates cleanly, but
 \textbf{the ReLU decline does not}---it is small and architecture-dependent
 outside the CNN family, as is the separate ``effective rank always rises''
-claim. We narrow our claims accordingly: the smooth-activation rise
-mechanism generalizes broadly; the ReLU decline and the rank-rise
+claim. A second scale step on real photographs (ResNet-50, Places365,
+365 classes, 2 seeds) replicates the \emph{full} CNN pattern exactly,
+direction and relative magnitude both matching CIFAR and Tiny-ImageNet;
+with only 2 seeds this does not add strong independent statistical power,
+but it is a real-photograph confirmation at a class count comparable to
+ImageNet-1k (which remains untested directly---registration-gated, no
+anonymous scriptable download). We narrow our claims accordingly: the
+smooth-activation rise mechanism generalizes broadly across optimizer,
+scale, and architecture family; the ReLU decline and the rank-rise
 observation are CNN-specific findings, not general properties of gate
-dynamics. Full-scale ImageNet and architecture families beyond these two
-remain untested.
+dynamics. Architecture families beyond CNNs, MLP-Mixer, and
+Transformer-Encoder remain untested.
 
 \textbf{Optimizer, resolved by prediction rather than scoped around.} The
 architecture-fixed ablation replicates exactly under Adam (coupled weight
@@ -1326,7 +1362,17 @@ CNN ablation. The per-channel mechanism experiment
 (Section~\ref{sec:channel_mechanism}) uses the same ResNet-18/CIFAR-10/SGD
 configuration as Section~\ref{sec:bn_ablation}, logging per-channel
 statistics at the same five epochs $\{0,6,12,18,24\}$ used by
-Section~\ref{sec:mu_test}.
+Section~\ref{sec:mu_test}. The Places365 experiment
+(Section~\ref{sec:generalization}) uses the public Places365-Standard
+easyformat release, a fixed seeded subsample of 150 train and 20
+validation images per class (365 classes; the full 1.8M-image training
+set exceeds this project's single-A100 budget), $96\times96$ input (the
+same CIFAR-native ResNet-50 stem, $12\times12$ feature map before the
+global pool), \texttt{RandomResizedCrop} (scale $0.7$--$1.0$) and
+horizontal flip for training augmentation, ImageNet-standard
+normalization statistics, otherwise the same SGD configuration as the
+main experiments; 2 seeds (not the usual 3, disclosed plainly) for
+compute-budget reasons.
 
 % =============================================================================
 \begin{thebibliography}{99}

@@ -1,11 +1,17 @@
 # Upgrade Summary: NeurIPS-8 Revision (Task A-D)
 
 This section documents the most recent campaign, run on top of the P1-P4
-campaign documented below. **Headline result: Task A succeeded.** The
-AdamW "collapse" reported in the P1-P4 campaign (see the superseded bullet
-in that section, left in place but corrected below) is no longer an
-unexplained scope boundary -- it is a successful, falsifiable prediction
-of the same mechanism, fed AdamW's real measured dynamics.
+campaign documented below. **All four tasks are complete.** Headline
+result: Task A succeeded. The AdamW "collapse" reported in the P1-P4
+campaign (see the superseded bullet in that section, left in place but
+corrected below) is no longer an unexplained scope boundary -- it is a
+successful, falsifiable prediction of the same mechanism, fed AdamW's
+real measured dynamics. Task C also closed cleanly: a real-photograph,
+365-class scale experiment replicates the full CNN pattern exactly, after
+four real infrastructure bugs were caught and fixed along the way. Task B
+closed partially (the order of magnitude of the mu-drift is now derived,
+the residual cross-activation variation remains open). Task D is an
+honest, pre-registered null.
 
 ## Task A (highest priority): does the mechanism predict the AdamW anomaly?
 
@@ -67,16 +73,45 @@ too slow for this filesystem's small-file write overhead (~70 minutes for
 train class plus the full val set -- a fixed, deterministic, documented
 selection).
 
-**Infrastructure correction**: that targeted extraction was found running
-as an unsupervised background process directly on the shared login node
-(3h11m, 95% CPU) -- a real violation of this project's own
-SLURM-for-multi-hour-work rule. Killed it and moved it into a proper
-SLURM job (`run_places365_extract.sh`), combined with the training step
-since this partition rejects GPU-less job submissions outright (so a
-second, separate GPU allocation just for extraction would be wasteful).
-**Job 11077301** (24h budget) is running as of this writing -- see
-`RESULTS_LOG.md` for the live status; this section will be updated with
-final results once it completes.
+**Four real infrastructure bugs were caught and fixed before this
+experiment produced a usable result** -- each verified directly, not
+assumed, before being declared fixed (full diagnosis of each in
+`RESULTS_LOG.md`):
+1. The targeted extraction was found running as an unsupervised
+   background process directly on the shared login node (3h11m, 95% CPU)
+   -- killed it and moved it into a proper SLURM job, combined with
+   training since this partition rejects GPU-less submissions outright.
+2. `tar -k` (skip already-extracted files) exits with status 2, which
+   combined with the script's `set -e` would have silently aborted right
+   after extraction and never reached training -- confirmed with a direct
+   test, fixed with `|| true`.
+3. `cifar_resnet50`'s `Bottleneck` block never had the `norm_layer`
+   parameter added when `CifarResNet.__init__` started threading it
+   through to every block (added for the BatchNorm-vs-GroupNorm ablation,
+   which only ever exercised ResNet-18) -- a latent, pre-existing bug,
+   confirmed not to affect the already-published ResNet-50/ReLU baseline.
+4. Per-image PIL decode from individual files on this scratch filesystem
+   has severe per-file I/O latency (directly measured via `nvidia-smi`
+   showing 0% GPU utilization and `/proc/<pid>/io` showing ~0.57MB/s) --
+   would have made the full run take days, not the 24h budgeted. Fixed by
+   caching all 62,050 needed images into two single tensor files once,
+   rather than re-decoding from disk every epoch.
+
+**Result: job 11081162 completed successfully** (cache build 18.5min,
+training ~7h, 200/200 epoch-runs, COMPLETED, exit 0:0). **The full CNN
+pattern replicates exactly**: ReLU declines (2/2 seeds, $-6.7$ to
+$-8.3$pp) while GELU/SiLU/Mish all rise (2/2 seeds each, $+0.3$ to
+$+1.1$pp) -- the same large-decline/small-rise asymmetry as CIFAR and
+Tiny-ImageNet, by both the trend and net-displacement statistics, with
+zero disagreements. Effective rank rises for all four activations,
+matching the CNN-specific pattern. 2 seeds (not the usual 3, disclosed
+plainly) means the sign test alone cannot exceed $p=0.5$, but the
+direction and magnitude both match every other CNN result in this paper,
+at a real-photograph, 365-class scale comparable to ImageNet-1k (which
+remains untested directly -- registration-gated, no anonymous scriptable
+download). Integrated into `main.tex`'s Scale paragraph, abstract,
+Discussion, and reproducibility appendix; added as a 4th panel to
+`generalization_scale_architecture.png`.
 
 ## Task D: one practical-payoff attempt, honestly null
 

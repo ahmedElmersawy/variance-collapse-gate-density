@@ -801,3 +801,50 @@ from expected A100 ResNet-50 batch cost once data loading is no longer
 the bottleneck) -- comfortably within the 24h allocation, a complete
 reversal from the previous architecture's days-long infeasibility.
 **Resubmitted** under the same job script (new job ID to follow).
+
+### TASK C RESULT: job 11081162 completed successfully, full CNN pattern replicates exactly
+
+**Job 11081162** (caching + training combined): cache build took 18.5
+minutes (54,750 train + 7,300 val images, 3.86GB total, ~64 images/s --
+faster than the conservative extrapolation), training took ~7h (200
+epoch-runs: 4 activations x 2 seeds x 25 epochs, ~180s/epoch on
+ResNet-50/96x96/A100). `sacct`: COMPLETED, exit 0:0. Final test
+accuracies 28-36\% on the 365-way task (chance level 0.27\%) -- genuine
+learning, not a degenerate run. `places365_dynamics.csv`: 200 rows,
+exactly matching the expected row count.
+
+Ran the same generic seed-level direction test used for every other
+generalization check (`analyze_seedlevel_direction.py`, both the
+whole-trajectory trend statistic and the net-displacement statistic,
+neither favored over the other):
+
+| activation | n\_decline (trend) | n\_rise (trend) | n\_decline (delta) | n\_rise (delta) |
+|---|---|---|---|---|
+| relu | 2/2 | 0/2 | 2/2 | 0/2 |
+| gelu | 0/2 | 2/2 | 0/2 | 2/2 |
+| silu | 0/2 | 2/2 | 0/2 | 2/2 |
+| mish | 0/2 | 2/2 | 0/2 | 2/2 |
+
+Both statistics agree completely with every other CNN result in this
+project. Magnitudes: relu active\_frac 0.550->0.476 (seed 0: $-8.3$pp,
+seed 1: $-6.7$pp); gelu 0.988->0.999 ($+1.1$, $+1.1$pp); silu
+0.996->0.9997 ($+0.3$, $+0.3$pp); mish 0.995->0.9997 ($+0.4$, $+0.5$pp)
+-- the same large-decline/small-rise asymmetry seen on CIFAR and
+Tiny-ImageNet, not a different regime. Effective rank rises for **all
+four** activations (2/2 seeds each, both statistics) -- consistent with
+the CNN-specific universal-rank-rise pattern (Section~sec:rank_null),
+unlike the architecture-dependent split found on MLP-Mixer/Transformer-Encoder.
+
+With only 2 seeds (disclosed plainly, not silently treated as the usual
+3 -- compute-budget reasons after the day lost to the four infrastructure
+bugs above), the sign test cannot exceed $p=0.5$ on its own; this
+experiment is reported as a real-photograph, larger-class-count
+(365, comparable to ImageNet-1k) directional confirmation, not as adding
+independent statistical power beyond what every other CNN experiment in
+this paper already established. Csvs: `places365_dynamics.csv`,
+`places365_seedlevel.csv`, `places365_summary_af.csv`,
+`places365_summary_rank.csv`. Figure: added as a 4th panel to
+`generalization_scale_architecture.png` (`plot_upgrade_figures.py`).
+Integrated into `main.tex`: Section~\ref{sec:generalization}'s Scale
+paragraph, the Discussion's scale/architecture-family limitation, the
+abstract, and Appendix~\ref{app:repro}.

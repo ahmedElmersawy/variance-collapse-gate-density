@@ -101,6 +101,7 @@ def fig_scale_and_architecture():
     tin = pd.concat([pd.read_csv(os.path.join(CSV, "tinyimagenet_dynamics_a.csv")),
                       pd.read_csv(os.path.join(CSV, "tinyimagenet_dynamics_b.csv"))], ignore_index=True)
     seq = pd.read_csv(os.path.join(CSV, "sequence_model_ablation.csv"))
+    places = pd.read_csv(os.path.join(CSV, "places365_dynamics.csv"))
 
     def deltas(df, group_cols):
         rows = []
@@ -113,31 +114,26 @@ def fig_scale_and_architecture():
 
     tin_d = deltas(tin, ["activation"])
     seq_d = deltas(seq, ["arch", "activation"])
+    places_d = deltas(places, ["activation"])
 
-    fig, axes = plt.subplots(1, 3, figsize=(13, 3.6))
-
-    ax = axes[0]
-    agg = tin_d.groupby("activation").delta.agg(["mean", "std", "count"])
-    agg["se"] = agg["std"] / np.sqrt(agg["count"])
+    fig, axes = plt.subplots(1, 4, figsize=(16.5, 3.6))
     x = np.arange(len(ACT_ORDER))
-    means = [agg.loc[a, "mean"] if a in agg.index else np.nan for a in ACT_ORDER]
-    ses = [agg.loc[a, "se"] if a in agg.index else np.nan for a in ACT_ORDER]
-    ax.bar(x, means, yerr=ses, capsize=3, color=[ACT_COLOR[a] for a in ACT_ORDER])
-    ax.axhline(0, color="black", lw=0.8)
-    ax.set_xticks(x); ax.set_xticklabels([a.upper() for a in ACT_ORDER])
-    ax.set_title("Tiny-ImageNet-200\n(ResNet-18, SGD)")
-    ax.set_ylabel(r"$\Delta$ active_frac")
 
-    for ax, arch in zip(axes[1:], ["mlp_mixer", "transformer_encoder"]):
-        sub = seq_d[seq_d.arch == arch]
-        agg = sub.groupby("activation").delta.agg(["mean", "std", "count"])
+    def bar_panel(ax, agg_df, title):
+        agg = agg_df.groupby("activation").delta.agg(["mean", "std", "count"])
         agg["se"] = agg["std"] / np.sqrt(agg["count"])
         means = [agg.loc[a, "mean"] if a in agg.index else np.nan for a in ACT_ORDER]
         ses = [agg.loc[a, "se"] if a in agg.index else np.nan for a in ACT_ORDER]
         ax.bar(x, means, yerr=ses, capsize=3, color=[ACT_COLOR[a] for a in ACT_ORDER])
         ax.axhline(0, color="black", lw=0.8)
         ax.set_xticks(x); ax.set_xticklabels([a.upper() for a in ACT_ORDER])
-        ax.set_title(("MLP-Mixer" if arch == "mlp_mixer" else "Transformer-Encoder") + "\n(LayerNorm, SGD)")
+        ax.set_title(title)
+
+    bar_panel(axes[0], tin_d, "Tiny-ImageNet-200\n(ResNet-18, SGD)")
+    axes[0].set_ylabel(r"$\Delta$ active_frac")
+    bar_panel(axes[1], seq_d[seq_d.arch == "mlp_mixer"], "MLP-Mixer\n(LayerNorm, SGD)")
+    bar_panel(axes[2], seq_d[seq_d.arch == "transformer_encoder"], "Transformer-Encoder\n(LayerNorm, SGD)")
+    bar_panel(axes[3], places_d, "Places365 (365 classes)\n(ResNet-50, 96x96, SGD)")
 
     fig.suptitle(r"$\Delta$ active_frac (epoch end $-$ start), pooled across datasets/seeds")
     fig.tight_layout()
