@@ -19,7 +19,7 @@ Three pre-registered negative controls are reported openly: gate density does no
 
 ## Repository layout
 
-- `main.tex` — NeurIPS 2026 submission (paper)
+- `Variance Collapse Predicts When Gate Density Diverges by Activation Class (Draft).pdf` — the paper (NeurIPS 2026 submission, draft)
 - `appendix.tex`, `appendix_synthetic_theory.tex`, `checklist.tex` — paper appendix and reproducibility checklist
 - `gradient_gate/` — instrumentation (gate-density hooks), architectures, and experiment runners
 - `gradient_gate_outputs/` — CSV results, figures, and markdown summaries per experiment
