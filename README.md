@@ -25,11 +25,11 @@ Three pre-registered negative controls are reported openly: gate density does no
 - `gradient_gate_outputs/` — CSV results, figures, and markdown summaries per experiment
 - `figures/` — generated plots used in the paper and poster
 - `poster/`, `poster_materials/` — conference poster source and assets
-- `run_*.sh` — SLURM job scripts for individual experiments
+- `scripts/` — SLURM job scripts for individual experiments
 - `ROADMAP.md` — running log of verified findings and remaining work
 
 ## Reproducing experiments
 
-Each `run_*.sh` script submits one experiment via `sbatch` (no conda/module activation required — system `python3` + `$HOME/.local` packages). See `gradient_gate/` for the underlying instrumentation (`GateInstrumentor`) and per-experiment entry points.
+Each script in `scripts/` submits one experiment via `sbatch` (no conda/module activation required — system `python3` + `$HOME/.local` packages). See `gradient_gate/` for the underlying instrumentation (`GateInstrumentor`) and per-experiment entry points.
 
 Datasets (CIFAR-10/100, Tiny-ImageNet-200, Places365) are not tracked in this repository — see `gradient_gate/` download/cache scripts to regenerate them locally.
