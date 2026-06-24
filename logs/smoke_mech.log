@@ -1,0 +1,4 @@
+[pruning-exp] device=cuda activations=['gelu'] seeds=[0] epochs=1 mech_epochs=(0, 6, 12, 18, 24)
+[pruning-exp] gelu seed=0 epoch=  0/1 [MECH] test_acc=0.454 gate_mean=0.5414 bn_gamma=0.8201 trace=294.43 top_eig=65.46 (107.4s)
+[pruning-exp] saved checkpoint -> /home/aelmersa/MMLS/logs/smoke_ckpt/resnet18_gelu_seed0.pt
+[pruning-exp] gelu seed=0 done in 1.8 min

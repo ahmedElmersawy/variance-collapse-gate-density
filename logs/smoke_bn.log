@@ -1,0 +1,5 @@
+[bn-abl] device=cuda norms=['batchnorm', 'groupnorm'] activations=['gelu'] seeds=[0] epochs=1
+[bn-abl] batchnorm/gelu seed=0 epoch=  0/1 train_acc=0.355 test_acc=0.440 active_frac=0.984 gate_mean=0.5397 (153.0s)
+[bn-abl] batchnorm/gelu seed=0 done in 2.7 min
+[bn-abl] groupnorm/gelu seed=0 epoch=  0/1 train_acc=0.140 test_acc=0.171 active_frac=0.984 gate_mean=0.4416 (104.7s)
+[bn-abl] groupnorm/gelu seed=0 done in 1.8 min

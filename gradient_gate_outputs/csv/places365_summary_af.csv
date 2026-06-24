@@ -1,0 +1,5 @@
+activation,n_seeds,n_decline_trend,n_rise_trend,majority_trend,all_agree_trend,sign_test_p_trend,n_decline_delta,n_rise_delta,majority_delta,all_agree_delta,sign_test_p_delta
+gelu,2,0,2,rise,True,0.5,0,2,rise,True,0.5
+mish,2,0,2,rise,True,0.5,0,2,rise,True,0.5
+relu,2,2,0,decline,True,0.5,2,0,decline,True,0.5
+silu,2,0,2,rise,True,0.5,0,2,rise,True,0.5

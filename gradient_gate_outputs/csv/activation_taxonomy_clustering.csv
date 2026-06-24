@@ -1,0 +1,5 @@
+k,silhouette,groups
+2,0.6241495063007508,"[relu,sigmoid,tanh]  [gelu,mish,swish]"
+3,0.7222625667350354,"[sigmoid,tanh]  [gelu,mish,swish]  [relu]"
+4,0.4581321238451987,"[gelu,mish,swish]  [tanh]  [relu]  [sigmoid]"
+5,0.25589819497346966,"[mish,swish]  [tanh]  [relu]  [sigmoid]  [gelu]"

@@ -1,0 +1,2 @@
+arch,activation,dataset,seed,epoch,train_acc,test_loss,test_acc,lr,epoch_time,mean_active_frac,min_active_frac,mean_effective_rank,mean_stable_rank,n_layers_measured,n_layers_total,grad_norm
+resnet18,gelu,cifar10,0,0,0.35596955128205127,1.5007043270111085,0.4554,0.0,161.16621899604797,0.9832726331318126,0.9701108932495117,46.1756269791547,3.342870354652405,17,17,1.3619387190232162

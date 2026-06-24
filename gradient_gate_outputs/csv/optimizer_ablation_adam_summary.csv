@@ -1,0 +1,5 @@
+activation,optimizer,n_seeds,n_decline,n_rise,majority_direction,all_agree,sign_test_p
+gelu,adam,12,0,12,rise,True,0.00048828125
+mish,adam,12,0,12,rise,True,0.00048828125
+relu,adam,12,12,0,decline,True,0.00048828125
+silu,adam,12,0,12,rise,True,0.00048828125

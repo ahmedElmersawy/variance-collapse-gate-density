@@ -1,0 +1,191 @@
+Job ID: 11039686  Node: gilbreth-k016  Start: Thu Jun 18 04:52:21 EDT 2026
+[privacy] alpha=  0.5 seed= 0 active_frac=1.000  dlg:psnr= -15.9dB  idlg:psnr= -26.6dB  inverting_gradients:psnr=  -8.2dB
+[privacy] alpha=  0.5 seed= 1 active_frac=1.000  dlg:psnr=  -3.0dB  idlg:psnr= -42.9dB  inverting_gradients:psnr=   0.5dB
+[privacy] alpha=  0.5 seed= 2 active_frac=1.000  dlg:psnr= -20.5dB  idlg:psnr= -48.6dB  inverting_gradients:psnr= -13.4dB
+[privacy] alpha=  0.5 seed= 3 active_frac=1.000  dlg:psnr= -20.5dB  idlg:psnr= -34.4dB  inverting_gradients:psnr=  -2.9dB
+[privacy] alpha=  0.5 seed= 4 active_frac=1.000  dlg:psnr= -15.7dB  idlg:psnr= -56.5dB  inverting_gradients:psnr=   2.7dB
+[privacy] alpha=  0.5 seed= 5 active_frac=1.000  dlg:psnr= -16.8dB  idlg:psnr= -49.9dB  inverting_gradients:psnr=  -3.3dB
+[privacy] alpha=  0.5 seed= 6 active_frac=1.000  dlg:psnr= -18.6dB  idlg:psnr= -27.5dB  inverting_gradients:psnr=  -8.0dB
+[privacy] alpha=  0.5 seed= 7 active_frac=1.000  dlg:psnr=  -9.2dB  idlg:psnr= -29.0dB  inverting_gradients:psnr=   2.8dB
+[privacy] alpha=  0.5 seed= 8 active_frac=1.000  dlg:psnr= -10.0dB  idlg:psnr= -32.3dB  inverting_gradients:psnr=  -1.3dB
+[privacy] alpha=  0.5 seed= 9 active_frac=1.000  dlg:psnr=  -9.3dB  idlg:psnr= -21.4dB  inverting_gradients:psnr=  -1.6dB
+[privacy] alpha=  0.5 seed=10 active_frac=1.000  dlg:psnr= -11.2dB  idlg:psnr= -47.2dB  inverting_gradients:psnr=  -1.7dB
+[privacy] alpha=  0.5 seed=11 active_frac=1.000  dlg:psnr=  -8.8dB  idlg:psnr= -48.9dB  inverting_gradients:psnr=  -5.1dB
+[privacy] alpha=  0.5 seed=12 active_frac=1.000  dlg:psnr=  -8.9dB  idlg:psnr= -16.9dB  inverting_gradients:psnr=  -2.5dB
+[privacy] alpha=  0.5 seed=13 active_frac=1.000  dlg:psnr= -22.8dB  idlg:psnr= -49.5dB  inverting_gradients:psnr=  -9.4dB
+[privacy] alpha=  0.5 seed=14 active_frac=1.000  dlg:psnr= -16.9dB  idlg:psnr= -38.8dB  inverting_gradients:psnr=   1.1dB
+[privacy] alpha=  0.5 seed=15 active_frac=1.000  dlg:psnr=  -6.3dB  idlg:psnr=-133.4dB  inverting_gradients:psnr=  -1.2dB
+[privacy] alpha=  0.5 seed=16 active_frac=1.000  dlg:psnr= -15.6dB  idlg:psnr= -34.6dB  inverting_gradients:psnr=  -9.7dB
+[privacy] alpha=  0.5 seed=17 active_frac=1.000  dlg:psnr= -22.7dB  idlg:psnr=-137.3dB  inverting_gradients:psnr= -10.1dB
+[privacy] alpha=  0.5 seed=18 active_frac=1.000  dlg:psnr= -22.7dB  idlg:psnr= -28.7dB  inverting_gradients:psnr= -13.3dB
+[privacy] alpha=  0.5 seed=19 active_frac=1.000  dlg:psnr= -30.1dB  idlg:psnr= -41.8dB  inverting_gradients:psnr=  -1.3dB
+[privacy] alpha=  1.0 seed= 0 active_frac=0.996  dlg:psnr= -18.2dB  idlg:psnr= -18.3dB  inverting_gradients:psnr= -10.7dB
+[privacy] alpha=  1.0 seed= 1 active_frac=1.000  dlg:psnr=-148.7dB  idlg:psnr= -13.5dB  inverting_gradients:psnr=  -0.8dB
+[privacy] alpha=  1.0 seed= 2 active_frac=0.996  dlg:psnr=-205.7dB  idlg:psnr= -33.6dB  inverting_gradients:psnr= -13.0dB
+[privacy] alpha=  1.0 seed= 3 active_frac=1.000  dlg:psnr= -10.0dB  idlg:psnr=-136.2dB  inverting_gradients:psnr=  -2.5dB
+[privacy] alpha=  1.0 seed= 4 active_frac=1.000  dlg:psnr=  -6.1dB  idlg:psnr=-109.8dB  inverting_gradients:psnr=  -2.4dB
+[privacy] alpha=  1.0 seed= 5 active_frac=0.997  dlg:psnr=-184.5dB  idlg:psnr= -43.6dB  inverting_gradients:psnr= -12.1dB
+[privacy] alpha=  1.0 seed= 6 active_frac=1.000  dlg:psnr=-147.4dB  idlg:psnr= -20.8dB  inverting_gradients:psnr=  -5.1dB
+[privacy] alpha=  1.0 seed= 7 active_frac=1.000  dlg:psnr=-155.3dB  idlg:psnr= -14.7dB  inverting_gradients:psnr=  -0.8dB
+[privacy] alpha=  1.0 seed= 8 active_frac=1.000  dlg:psnr= -10.3dB  idlg:psnr= -14.6dB  inverting_gradients:psnr=  -7.1dB
+[privacy] alpha=  1.0 seed= 9 active_frac=1.000  dlg:psnr= -58.0dB  idlg:psnr= -57.9dB  inverting_gradients:psnr=  -6.2dB
+[privacy] alpha=  1.0 seed=10 active_frac=1.000  dlg:psnr= -12.9dB  idlg:psnr= -56.6dB  inverting_gradients:psnr=  -4.0dB
+[privacy] alpha=  1.0 seed=11 active_frac=1.000  dlg:psnr=  -1.3dB  idlg:psnr= -30.8dB  inverting_gradients:psnr=  -6.7dB
+[privacy] alpha=  1.0 seed=12 active_frac=1.000  dlg:psnr=  -3.6dB  idlg:psnr=  -8.7dB  inverting_gradients:psnr=  -1.0dB
+[privacy] alpha=  1.0 seed=13 active_frac=1.000  dlg:psnr= -21.8dB  idlg:psnr= -30.5dB  inverting_gradients:psnr=  -9.2dB
+[privacy] alpha=  1.0 seed=14 active_frac=1.000  dlg:psnr=  -1.3dB  idlg:psnr= -51.8dB  inverting_gradients:psnr=  -1.4dB
+[privacy] alpha=  1.0 seed=15 active_frac=1.000  dlg:psnr= -15.2dB  idlg:psnr=-136.2dB  inverting_gradients:psnr=  -5.1dB
+[privacy] alpha=  1.0 seed=16 active_frac=1.000  dlg:psnr=  -2.0dB  idlg:psnr= -14.3dB  inverting_gradients:psnr=  -4.9dB
+[privacy] alpha=  1.0 seed=17 active_frac=0.999  dlg:psnr= -21.5dB  idlg:psnr= -23.1dB  inverting_gradients:psnr=  -7.8dB
+[privacy] alpha=  1.0 seed=18 active_frac=0.999  dlg:psnr= -16.0dB  idlg:psnr= -17.5dB  inverting_gradients:psnr= -11.4dB
+[privacy] alpha=  1.0 seed=19 active_frac=1.000  dlg:psnr= -17.1dB  idlg:psnr= -17.2dB  inverting_gradients:psnr=  -4.6dB
+[privacy] alpha=  2.0 seed= 0 active_frac=1.000  dlg:psnr=  -4.6dB  idlg:psnr=  -3.1dB  inverting_gradients:psnr=  -3.2dB
+[privacy] alpha=  2.0 seed= 1 active_frac=1.000  dlg:psnr=-176.3dB  idlg:psnr=-194.3dB  inverting_gradients:psnr=  -2.1dB
+[privacy] alpha=  2.0 seed= 2 active_frac=0.983  dlg:psnr= -14.4dB  idlg:psnr= -19.4dB  inverting_gradients:psnr= -10.4dB
+[privacy] alpha=  2.0 seed= 3 active_frac=1.000  dlg:psnr=-246.5dB  idlg:psnr=  -4.6dB  inverting_gradients:psnr=  -1.1dB
+[privacy] alpha=  2.0 seed= 4 active_frac=1.000  dlg:psnr=   4.9dB  idlg:psnr=-148.4dB  inverting_gradients:psnr=   2.8dB
+[privacy] alpha=  2.0 seed= 5 active_frac=0.980  dlg:psnr=-141.9dB  idlg:psnr=-117.3dB  inverting_gradients:psnr= -10.0dB
+[privacy] alpha=  2.0 seed= 6 active_frac=1.000  dlg:psnr=   2.9dB  idlg:psnr=-108.6dB  inverting_gradients:psnr=   1.1dB
+[privacy] alpha=  2.0 seed= 7 active_frac=1.000  dlg:psnr=  -3.8dB  idlg:psnr=-183.0dB  inverting_gradients:psnr=  -0.9dB
+[privacy] alpha=  2.0 seed= 8 active_frac=1.000  dlg:psnr=  -0.5dB  idlg:psnr= -97.0dB  inverting_gradients:psnr=  -2.7dB
+[privacy] alpha=  2.0 seed= 9 active_frac=0.999  dlg:psnr=  -2.3dB  idlg:psnr=  -0.1dB  inverting_gradients:psnr=   0.5dB
+[privacy] alpha=  2.0 seed=10 active_frac=0.998  dlg:psnr=  -4.3dB  idlg:psnr= -50.3dB  inverting_gradients:psnr=  -1.5dB
+[privacy] alpha=  2.0 seed=11 active_frac=0.998  dlg:psnr=  -5.3dB  idlg:psnr=  -7.8dB  inverting_gradients:psnr=  -4.5dB
+[privacy] alpha=  2.0 seed=12 active_frac=1.000  dlg:psnr=  -0.0dB  idlg:psnr=  -2.9dB  inverting_gradients:psnr=  -0.4dB
+[privacy] alpha=  2.0 seed=13 active_frac=0.997  dlg:psnr= -11.3dB  idlg:psnr=  -9.6dB  inverting_gradients:psnr=  -5.1dB
+[privacy] alpha=  2.0 seed=14 active_frac=1.000  dlg:psnr=-180.1dB  idlg:psnr= -85.3dB  inverting_gradients:psnr=   1.4dB
+[privacy] alpha=  2.0 seed=15 active_frac=0.995  dlg:psnr=  -8.7dB  idlg:psnr= -15.2dB  inverting_gradients:psnr=  -6.9dB
+[privacy] alpha=  2.0 seed=16 active_frac=0.999  dlg:psnr=-243.6dB  idlg:psnr=  -6.4dB  inverting_gradients:psnr=  -3.1dB
+[privacy] alpha=  2.0 seed=17 active_frac=0.995  dlg:psnr=  -2.7dB  idlg:psnr=  -0.8dB  inverting_gradients:psnr=  -1.7dB
+[privacy] alpha=  2.0 seed=18 active_frac=0.999  dlg:psnr=  -7.6dB  idlg:psnr=  -7.9dB  inverting_gradients:psnr=  -5.5dB
+[privacy] alpha=  2.0 seed=19 active_frac=1.000  dlg:psnr=  -5.8dB  idlg:psnr=  -7.8dB  inverting_gradients:psnr=  -2.9dB
+[privacy] alpha=  4.0 seed= 0 active_frac=0.991  dlg:psnr=-136.6dB  idlg:psnr=   2.7dB  inverting_gradients:psnr=   3.5dB
+[privacy] alpha=  4.0 seed= 1 active_frac=0.992  dlg:psnr=  -2.0dB  idlg:psnr=  -2.3dB  inverting_gradients:psnr=  -1.2dB
+[privacy] alpha=  4.0 seed= 2 active_frac=0.981  dlg:psnr=-213.9dB  idlg:psnr=  -5.5dB  inverting_gradients:psnr=  -3.4dB
+[privacy] alpha=  4.0 seed= 3 active_frac=0.978  dlg:psnr=   0.1dB  idlg:psnr=  -0.4dB  inverting_gradients:psnr=   1.7dB
+[privacy] alpha=  4.0 seed= 4 active_frac=1.000  dlg:psnr=-149.7dB  idlg:psnr=-151.8dB  inverting_gradients:psnr=   4.0dB
+[privacy] alpha=  4.0 seed= 5 active_frac=0.973  dlg:psnr=-192.6dB  idlg:psnr=  -4.9dB  inverting_gradients:psnr=  -4.8dB
+[privacy] alpha=  4.0 seed= 6 active_frac=0.996  dlg:psnr=   4.5dB  idlg:psnr=-121.3dB  inverting_gradients:psnr=   2.5dB
+[privacy] alpha=  4.0 seed= 7 active_frac=0.987  dlg:psnr=-161.7dB  idlg:psnr= -99.1dB  inverting_gradients:psnr=   0.8dB
+[privacy] alpha=  4.0 seed= 8 active_frac=0.984  dlg:psnr=-328.1dB  idlg:psnr=   2.7dB  inverting_gradients:psnr=   2.0dB
+[privacy] alpha=  4.0 seed= 9 active_frac=0.986  dlg:psnr=   4.3dB  idlg:psnr=   5.0dB  inverting_gradients:psnr=   2.5dB
+[privacy] alpha=  4.0 seed=10 active_frac=0.979  dlg:psnr=-137.9dB  idlg:psnr=   1.8dB  inverting_gradients:psnr=   1.2dB
+[privacy] alpha=  4.0 seed=11 active_frac=1.000  dlg:psnr=   2.1dB  idlg:psnr= -87.0dB  inverting_gradients:psnr=   2.1dB
+[privacy] alpha=  4.0 seed=12 active_frac=0.988  dlg:psnr=  -0.3dB  idlg:psnr=  -2.2dB  inverting_gradients:psnr=  -1.2dB
+[privacy] alpha=  4.0 seed=13 active_frac=0.994  dlg:psnr=   5.7dB  idlg:psnr=   5.8dB  inverting_gradients:psnr=   3.1dB
+[privacy] alpha=  4.0 seed=14 active_frac=0.999  dlg:psnr=   3.2dB  idlg:psnr=-138.4dB  inverting_gradients:psnr=   3.8dB
+[privacy] alpha=  4.0 seed=15 active_frac=0.996  dlg:psnr=   1.2dB  idlg:psnr=  -1.1dB  inverting_gradients:psnr=  -0.9dB
+[privacy] alpha=  4.0 seed=16 active_frac=0.974  dlg:psnr=   3.4dB  idlg:psnr=   1.1dB  inverting_gradients:psnr=  -0.2dB
+[privacy] alpha=  4.0 seed=17 active_frac=0.976  dlg:psnr=   2.0dB  idlg:psnr= -85.4dB  inverting_gradients:psnr=   2.1dB
+[privacy] alpha=  4.0 seed=18 active_frac=0.999  dlg:psnr=  -1.2dB  idlg:psnr=-102.0dB  inverting_gradients:psnr=  -0.7dB
+[privacy] alpha=  4.0 seed=19 active_frac=0.988  dlg:psnr=-120.1dB  idlg:psnr=  -0.6dB  inverting_gradients:psnr=  -0.1dB
+[privacy] alpha=  8.0 seed= 0 active_frac=0.921  dlg:psnr=   5.1dB  idlg:psnr=   5.4dB  inverting_gradients:psnr=   4.7dB
+[privacy] alpha=  8.0 seed= 1 active_frac=0.908  dlg:psnr=   6.2dB  idlg:psnr=   5.4dB  inverting_gradients:psnr=  -1.4dB
+[privacy] alpha=  8.0 seed= 2 active_frac=0.887  dlg:psnr=   5.0dB  idlg:psnr= -80.5dB  inverting_gradients:psnr=   2.9dB
+[privacy] alpha=  8.0 seed= 3 active_frac=0.871  dlg:psnr=   6.8dB  idlg:psnr=   6.5dB  inverting_gradients:psnr=   4.7dB
+[privacy] alpha=  8.0 seed= 4 active_frac=0.947  dlg:psnr=-141.6dB  idlg:psnr= -89.4dB  inverting_gradients:psnr=   2.8dB
+[privacy] alpha=  8.0 seed= 5 active_frac=0.723  dlg:psnr=  -1.5dB  idlg:psnr=  -3.7dB  inverting_gradients:psnr=  -7.8dB
+[privacy] alpha=  8.0 seed= 6 active_frac=0.890  dlg:psnr=-151.2dB  idlg:psnr=-101.2dB  inverting_gradients:psnr=   2.8dB
+[privacy] alpha=  8.0 seed= 7 active_frac=0.894  dlg:psnr=   7.3dB  idlg:psnr=   6.0dB  inverting_gradients:psnr=   0.5dB
+[privacy] alpha=  8.0 seed= 8 active_frac=0.867  dlg:psnr=   7.2dB  idlg:psnr=   7.4dB  inverting_gradients:psnr=   4.0dB
+[privacy] alpha=  8.0 seed= 9 active_frac=0.933  dlg:psnr=   8.4dB  idlg:psnr=   7.6dB  inverting_gradients:psnr=   2.6dB
+[privacy] alpha=  8.0 seed=10 active_frac=0.933  dlg:psnr=   9.7dB  idlg:psnr=-113.6dB  inverting_gradients:psnr=   4.9dB
+[privacy] alpha=  8.0 seed=11 active_frac=0.920  dlg:psnr=   0.9dB  idlg:psnr= -92.8dB  inverting_gradients:psnr=   1.2dB
+[privacy] alpha=  8.0 seed=12 active_frac=0.856  dlg:psnr=   7.2dB  idlg:psnr=   7.5dB  inverting_gradients:psnr=   0.4dB
+[privacy] alpha=  8.0 seed=13 active_frac=0.880  dlg:psnr=   7.5dB  idlg:psnr=   7.9dB  inverting_gradients:psnr=  -0.5dB
+[privacy] alpha=  8.0 seed=14 active_frac=0.883  dlg:psnr=   8.0dB  idlg:psnr= -89.8dB  inverting_gradients:psnr=   3.4dB
+[privacy] alpha=  8.0 seed=15 active_frac=0.916  dlg:psnr=-173.0dB  idlg:psnr=-113.6dB  inverting_gradients:psnr=   5.7dB
+[privacy] alpha=  8.0 seed=16 active_frac=0.857  dlg:psnr=   5.8dB  idlg:psnr=-111.5dB  inverting_gradients:psnr=  -0.9dB
+[privacy] alpha=  8.0 seed=17 active_frac=0.728  dlg:psnr=   3.6dB  idlg:psnr=   2.6dB  inverting_gradients:psnr=  -0.3dB
+[privacy] alpha=  8.0 seed=18 active_frac=0.906  dlg:psnr=   3.0dB  idlg:psnr=   2.8dB  inverting_gradients:psnr=   2.1dB
+[privacy] alpha=  8.0 seed=19 active_frac=0.852  dlg:psnr=   4.3dB  idlg:psnr=   3.9dB  inverting_gradients:psnr=   1.9dB
+[privacy] alpha= 16.0 seed= 0 active_frac=0.435  dlg:psnr=   6.9dB  idlg:psnr=   5.7dB  inverting_gradients:psnr=   2.7dB
+[privacy] alpha= 16.0 seed= 1 active_frac=0.575  dlg:psnr=   8.2dB  idlg:psnr=  10.3dB  inverting_gradients:psnr=  -3.9dB
+[privacy] alpha= 16.0 seed= 2 active_frac=0.390  dlg:psnr=   5.8dB  idlg:psnr= -98.7dB  inverting_gradients:psnr=   0.1dB
+[privacy] alpha= 16.0 seed= 3 active_frac=0.435  dlg:psnr=   4.5dB  idlg:psnr=   7.0dB  inverting_gradients:psnr=   1.3dB
+[privacy] alpha= 16.0 seed= 4 active_frac=0.466  dlg:psnr=-232.5dB  idlg:psnr= -94.6dB  inverting_gradients:psnr=   1.5dB
+[privacy] alpha= 16.0 seed= 5 active_frac=0.421  dlg:psnr=  -1.4dB  idlg:psnr= -12.5dB  inverting_gradients:psnr=  -8.5dB
+[privacy] alpha= 16.0 seed= 6 active_frac=0.364  dlg:psnr=   2.7dB  idlg:psnr=-142.0dB  inverting_gradients:psnr=  -0.2dB
+[privacy] alpha= 16.0 seed= 7 active_frac=0.366  dlg:psnr=   4.9dB  idlg:psnr= -92.0dB  inverting_gradients:psnr=  -0.8dB
+[privacy] alpha= 16.0 seed= 8 active_frac=0.417  dlg:psnr=   9.5dB  idlg:psnr= -83.4dB  inverting_gradients:psnr=   1.9dB
+[privacy] alpha= 16.0 seed= 9 active_frac=0.468  dlg:psnr=   5.2dB  idlg:psnr=   9.7dB  inverting_gradients:psnr=   1.6dB
+[privacy] alpha= 16.0 seed=10 active_frac=0.447  dlg:psnr=   7.2dB  idlg:psnr= -92.3dB  inverting_gradients:psnr=   3.0dB
+[privacy] alpha= 16.0 seed=11 active_frac=0.550  dlg:psnr=   1.6dB  idlg:psnr=-125.5dB  inverting_gradients:psnr=  -1.2dB
+[privacy] alpha= 16.0 seed=12 active_frac=0.369  dlg:psnr=-179.6dB  idlg:psnr=-108.3dB  inverting_gradients:psnr=  -2.2dB
+[privacy] alpha= 16.0 seed=13 active_frac=0.506  dlg:psnr=-199.4dB  idlg:psnr= -99.5dB  inverting_gradients:psnr=  -4.0dB
+[privacy] alpha= 16.0 seed=14 active_frac=0.418  dlg:psnr=   3.3dB  idlg:psnr=   2.8dB  inverting_gradients:psnr=   0.5dB
+[privacy] alpha= 16.0 seed=15 active_frac=0.557  dlg:psnr=   6.7dB  idlg:psnr=-119.9dB  inverting_gradients:psnr=   3.6dB
+[privacy] alpha= 16.0 seed=16 active_frac=0.453  dlg:psnr=   7.3dB  idlg:psnr= -89.8dB  inverting_gradients:psnr=  -3.7dB
+[privacy] alpha= 16.0 seed=17 active_frac=0.190  dlg:psnr=  -1.1dB  idlg:psnr=-128.3dB  inverting_gradients:psnr=  -3.2dB
+[privacy] alpha= 16.0 seed=18 active_frac=0.471  dlg:psnr=   1.0dB  idlg:psnr=-100.0dB  inverting_gradients:psnr=  -1.8dB
+[privacy] alpha= 16.0 seed=19 active_frac=0.319  dlg:psnr=   2.1dB  idlg:psnr= -95.0dB  inverting_gradients:psnr=   0.4dB
+[privacy] alpha= 32.0 seed= 0 active_frac=0.166  dlg:psnr=   3.1dB  idlg:psnr=   3.2dB  inverting_gradients:psnr=  -1.7dB
+[privacy] alpha= 32.0 seed= 1 active_frac=0.255  dlg:psnr=   1.0dB  idlg:psnr=  -0.8dB  inverting_gradients:psnr=  -6.4dB
+[privacy] alpha= 32.0 seed= 2 active_frac=0.195  dlg:psnr=  -2.6dB  idlg:psnr=  -0.1dB  inverting_gradients:psnr=  -2.4dB
+[privacy] alpha= 32.0 seed= 3 active_frac=0.197  dlg:psnr=   0.9dB  idlg:psnr=   3.1dB  inverting_gradients:psnr=  -1.2dB
+[privacy] alpha= 32.0 seed= 4 active_frac=0.183  dlg:psnr=   2.8dB  idlg:psnr= -88.3dB  inverting_gradients:psnr=  -1.8dB
+[privacy] alpha= 32.0 seed= 5 active_frac=0.237  dlg:psnr=  -8.7dB  idlg:psnr= -90.6dB  inverting_gradients:psnr=  -8.7dB
+[privacy] alpha= 32.0 seed= 6 active_frac=0.179  dlg:psnr=-131.8dB  idlg:psnr=-101.5dB  inverting_gradients:psnr=  -4.6dB
+[privacy] alpha= 32.0 seed= 7 active_frac=0.130  dlg:psnr=  -0.1dB  idlg:psnr= -97.9dB  inverting_gradients:psnr=  -2.3dB
+[privacy] alpha= 32.0 seed= 8 active_frac=0.183  dlg:psnr=-304.8dB  idlg:psnr=   3.6dB  inverting_gradients:psnr=  -0.8dB
+[privacy] alpha= 32.0 seed= 9 active_frac=0.220  dlg:psnr= -87.3dB  idlg:psnr=-100.9dB  inverting_gradients:psnr=  -2.4dB
+[privacy] alpha= 32.0 seed=10 active_frac=0.180  dlg:psnr= -99.3dB  idlg:psnr=   4.7dB  inverting_gradients:psnr=  -0.1dB
+[privacy] alpha= 32.0 seed=11 active_frac=0.294  dlg:psnr=  -6.4dB  idlg:psnr= -91.2dB  inverting_gradients:psnr=  -5.6dB
+[privacy] alpha= 32.0 seed=12 active_frac=0.154  dlg:psnr=  -1.1dB  idlg:psnr=-107.5dB  inverting_gradients:psnr=  -4.2dB
+[privacy] alpha= 32.0 seed=13 active_frac=0.194  dlg:psnr=  -3.2dB  idlg:psnr=  -0.4dB  inverting_gradients:psnr=  -5.6dB
+[privacy] alpha= 32.0 seed=14 active_frac=0.197  dlg:psnr=  -1.7dB  idlg:psnr= -96.2dB  inverting_gradients:psnr=  -5.2dB
+[privacy] alpha= 32.0 seed=15 active_frac=0.222  dlg:psnr=   0.6dB  idlg:psnr=  -2.7dB  inverting_gradients:psnr=  -1.6dB
+[privacy] alpha= 32.0 seed=16 active_frac=0.205  dlg:psnr=   0.5dB  idlg:psnr=  -0.5dB  inverting_gradients:psnr=  -5.7dB
+[privacy] alpha= 32.0 seed=17 active_frac=0.085  dlg:psnr=  -4.2dB  idlg:psnr= -79.1dB  inverting_gradients:psnr=  -4.4dB
+[privacy] alpha= 32.0 seed=18 active_frac=0.208  dlg:psnr=-101.6dB  idlg:psnr= -69.3dB  inverting_gradients:psnr=  -4.4dB
+[privacy] alpha= 32.0 seed=19 active_frac=0.118  dlg:psnr=   0.9dB  idlg:psnr= -74.9dB  inverting_gradients:psnr=  -2.5dB
+
+[privacy] wrote 420 rows -> gradient_gate_outputs/csv/privacy_gate_collapse.csv
+
+======================================================================
+PER-ATTACK ANALYSIS
+======================================================================
+
+--- dlg ---
+  logit(converged) ~ log(alpha):  slope=-0.142  p=0.3496
+    alpha=  0.5  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+    alpha=  1.0  converged 15/20  rate=0.75  95% CI=[0.55, 0.90]
+    alpha=  2.0  converged 15/20  rate=0.75  95% CI=[0.55, 0.90]
+    alpha=  4.0  converged 12/20  rate=0.60  95% CI=[0.40, 0.80]
+    alpha=  8.0  converged 17/20  rate=0.85  95% CI=[0.70, 1.00]
+    alpha= 16.0  converged 17/20  rate=0.85  95% CI=[0.70, 1.00]
+    alpha= 32.0  converged 15/20  rate=0.75  95% CI=[0.55, 0.90]
+  quality|converged corr vs alpha (n_alpha=7):  r=+0.355  p=0.4343
+
+--- idlg ---
+  logit(converged) ~ log(alpha):  slope=-0.608  p=3.171e-05
+    alpha=  0.5  converged 18/20  rate=0.90  95% CI=[0.75, 1.00]
+    alpha=  1.0  converged 17/20  rate=0.85  95% CI=[0.70, 1.00]
+    alpha=  2.0  converged 13/20  rate=0.65  95% CI=[0.45, 0.85]
+    alpha=  4.0  converged 13/20  rate=0.65  95% CI=[0.45, 0.85]
+    alpha=  8.0  converged 12/20  rate=0.60  95% CI=[0.40, 0.80]
+    alpha= 16.0  converged  6/20  rate=0.30  95% CI=[0.10, 0.50]
+    alpha= 32.0  converged  9/20  rate=0.45  95% CI=[0.25, 0.65]
+  quality|converged corr vs alpha (n_alpha=7):  r=+0.577  p=0.1746
+
+--- inverting_gradients ---
+  logit(converged) ~ log(alpha):  slope=+0.762  p=1
+    alpha=  0.5  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+    alpha=  1.0  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+    alpha=  2.0  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+    alpha=  4.0  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+    alpha=  8.0  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+    alpha= 16.0  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+    alpha= 32.0  converged 20/20  rate=1.00  95% CI=[1.00, 1.00]
+  quality|converged corr vs alpha (n_alpha=7):  r=-0.329  p=0.4713
+
+======================================================================
+CROSS-ATTACK COMPARISON (does the stronger baseline change the story?)
+======================================================================
+             attack  logit_slope  logit_p  quality_r  quality_p  overall_convergence_rate
+                dlg    -0.142091 0.349564   0.355233   0.434256                  0.792857
+               idlg    -0.608240 0.000032   0.577487   0.174562                  0.628571
+inverting_gradients     0.762024 0.999999  -0.328928   0.471306                  1.000000
+
+[privacy] wrote figure -> gradient_gate_outputs/figures/privacy_gate_collapse.png
+Job complete at Thu Jun 18 06:33:38 EDT 2026

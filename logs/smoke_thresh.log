@@ -1,0 +1,5 @@
+[thresh-rob] device=cuda archs=['resnet18'] activations=['relu', 'gelu'] datasets=['cifar10'] seeds=[0] epochs=1
+[thresh-rob] resnet18(relu) seed=0 epoch=  0/1 test_acc=0.427  af@0.01=0.517  gate_mean=0.5166 gate_median=1.0000 (141.5s)
+[thresh-rob] resnet18(relu)/cifar10 seed=0 done in 2.5 min
+[thresh-rob] resnet18(gelu) seed=0 epoch=  0/1 test_acc=0.461  af@0.01=0.984  gate_mean=0.5439 gate_median=0.5420 (102.7s)
+[thresh-rob] resnet18(gelu)/cifar10 seed=0 done in 1.7 min

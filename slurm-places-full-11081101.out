@@ -1,0 +1,4 @@
+Job ID: 11081101  Node: gilbreth-k002  Start: Sun Jun 21 14:23:11 EDT 2026
+extraction_done.marker present, skipping extraction
+Extraction step complete at Sun Jun 21 14:23:11 EDT 2026
+[places-dyn] device=cuda activations=['relu', 'gelu', 'silu', 'mish'] optimizer=sgd lr=0.1 seeds=[0, 1] epochs=25 samples_per_class_train=150 img_size=96

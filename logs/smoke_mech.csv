@@ -1,0 +1,2 @@
+activation,seed,epoch,test_acc,epoch_time,gate_mean,active_frac,pre_activation_var,post_activation_var,bn_mean_abs_gamma,bn_mean_abs_beta,hessian_trace_estimate,top_eigenvalue_estimate
+gelu,0,0,0.4539,107.23566508293152,0.5413659811019897,0.9852870588235294,0.958649663364186,0.42622805605916414,0.820061981678009,0.022655434906482697,294.42804225087167,65.45964050292969

@@ -1,0 +1,14 @@
+[pruning-analysis] gelu seed=0 ratio=10% method=gate_density acc=0.4586 (baseline=0.4539, drop=-0.0047)
+[pruning-analysis] gelu seed=0 ratio=10% method=magnitude    acc=0.2579 (baseline=0.4539, drop=+0.1960)
+[pruning-analysis] gelu seed=0 ratio=10% method=random       acc=0.3967 (baseline=0.4539, drop=+0.0572)
+[pruning-analysis] gelu seed=0 ratio=30% method=gate_density acc=0.4267 (baseline=0.4539, drop=+0.0272)
+[pruning-analysis] gelu seed=0 ratio=30% method=magnitude    acc=0.1544 (baseline=0.4539, drop=+0.2995)
+[pruning-analysis] gelu seed=0 ratio=30% method=random       acc=0.2353 (baseline=0.4539, drop=+0.2186)
+[pruning-analysis] gelu seed=0 ratio=50% method=gate_density acc=0.1986 (baseline=0.4539, drop=+0.2553)
+[pruning-analysis] gelu seed=0 ratio=50% method=magnitude    acc=0.1300 (baseline=0.4539, drop=+0.3239)
+[pruning-analysis] gelu seed=0 ratio=50% method=random       acc=0.2240 (baseline=0.4539, drop=+0.2299)
+[pruning-analysis] gelu seed=0 ratio=70% method=gate_density acc=0.1072 (baseline=0.4539, drop=+0.3467)
+[pruning-analysis] gelu seed=0 ratio=70% method=magnitude    acc=0.1200 (baseline=0.4539, drop=+0.3339)
+[pruning-analysis] gelu seed=0 ratio=70% method=random       acc=0.1279 (baseline=0.4539, drop=+0.3260)
+
+[pruning-analysis] wrote 12 rows -> /home/aelmersa/MMLS/logs/smoke_pruning.csv

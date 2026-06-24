@@ -1,0 +1,9 @@
+arch,activation,n_seeds,n_decline_trend,n_rise_trend,majority_trend,all_agree_trend,sign_test_p_trend,n_decline_delta,n_rise_delta,majority_delta,all_agree_delta,sign_test_p_delta
+mlp_mixer,gelu,6,6,0,decline,True,0.03125,6,0,decline,True,0.03125
+mlp_mixer,mish,6,6,0,decline,True,0.03125,6,0,decline,True,0.03125
+mlp_mixer,relu,6,6,0,decline,True,0.03125,6,0,decline,True,0.03125
+mlp_mixer,silu,6,6,0,decline,True,0.03125,6,0,decline,True,0.03125
+transformer_encoder,gelu,6,6,0,decline,True,0.03125,5,1,decline,False,0.21875
+transformer_encoder,mish,6,6,0,decline,True,0.03125,4,2,decline,False,0.6875
+transformer_encoder,relu,6,0,6,rise,True,0.03125,0,6,rise,True,0.03125
+transformer_encoder,silu,6,6,0,decline,True,0.03125,3,3,rise,False,1.0

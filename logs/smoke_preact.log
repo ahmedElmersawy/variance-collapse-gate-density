@@ -1,0 +1,7 @@
+[preact-mean] device=cuda activations=['relu', 'softplus_beta20', 'silu'] seeds=[0] epochs=1
+[preact-mean] relu seed=0 epoch=  0/1 test_acc=0.411 mean_mu=+0.02006 mean_sigma=0.8354 std_mu=-0.01709 (128.6s)
+[preact-mean] relu seed=0 done in 2.3 min
+[preact-mean] softplus_beta20 seed=0 epoch=  0/1 test_acc=0.436 mean_mu=+0.03089 mean_sigma=0.8449 std_mu=+0.00572 (99.5s)
+[preact-mean] softplus_beta20 seed=0 done in 1.7 min
+[preact-mean] silu seed=0 epoch=  0/1 test_acc=0.408 mean_mu=+0.02602 mean_sigma=0.9141 std_mu=+0.02110 (102.0s)
+[preact-mean] silu seed=0 done in 1.7 min

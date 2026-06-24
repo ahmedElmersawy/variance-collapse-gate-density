@@ -1,0 +1,10 @@
+level,x,y,test,stat,p_value,ci_lo,ci_hi
+condition (n=12),smoothness_index,"mean_rho(epoch,active_frac)",Pearson,-0.7110686124090553,0.006430655859323339,,
+condition (n=12),smoothness_index,"mean_rho(epoch,active_frac)",Spearman,-0.7307692307692307,0.004547733743967149,,
+condition (n=12),smoothness_index,mean_delta_active_frac,Pearson,-0.6163158713083592,0.024885338702866844,,
+condition (n=12),smoothness_index,mean_delta_active_frac,Spearman,-0.4505494505494505,0.12233188767803571,,
+seed-trajectory (n=37),smoothness_index,"rho(epoch,active_frac)",Pearson,-0.739792976993545,1.1151941697638009e-07,,
+seed-trajectory (n=37),smoothness_index,"rho(epoch,active_frac)",Spearman,-0.7097095239012189,6.062356230179275e-07,,
+seed-trajectory (n=37),smoothness_index,delta_active_frac,Pearson,-0.6486560743349099,1.0609944143769698e-05,,
+seed-trajectory (n=37),smoothness_index,delta_active_frac,Spearman,-0.6052084473137104,5.689331288571801e-05,,
+"condition (n=12), bootstrap",smoothness_index,mean_delta_active_frac,Spearman_bootstrap_CI,-0.5213653846153845,,-0.7747252747252747,-0.40096153846153926

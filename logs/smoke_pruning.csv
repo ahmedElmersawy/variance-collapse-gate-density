@@ -1,0 +1,13 @@
+activation,seed,ratio,method,baseline_acc,pruned_acc,acc_drop
+gelu,0,0.1,gate_density,0.4539,0.4586,-0.004699999999999982
+gelu,0,0.1,magnitude,0.4539,0.2579,0.196
+gelu,0,0.1,random,0.4539,0.3967,0.05720000000000003
+gelu,0,0.3,gate_density,0.4539,0.4267,0.027200000000000002
+gelu,0,0.3,magnitude,0.4539,0.1544,0.2995
+gelu,0,0.3,random,0.4539,0.2353,0.21860000000000002
+gelu,0,0.5,gate_density,0.4539,0.1986,0.2553
+gelu,0,0.5,magnitude,0.4539,0.13,0.3239
+gelu,0,0.5,random,0.4539,0.224,0.22990000000000002
+gelu,0,0.7,gate_density,0.4539,0.1072,0.3467
+gelu,0,0.7,magnitude,0.4539,0.12,0.33390000000000003
+gelu,0,0.7,random,0.4539,0.1279,0.326

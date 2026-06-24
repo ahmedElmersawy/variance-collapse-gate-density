@@ -1,0 +1,18 @@
+/home/aelmersa/.local/lib/python3.9/site-packages/torch/optim/lbfgs.py:457: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  loss = float(closure())
+[privacy] alpha=  0.5 seed= 0 active_frac=1.000  dlg:psnr=-148.7dB  idlg:psnr= -25.0dB  inverting_gradients:psnr=  -8.2dB
+[privacy] alpha=  0.5 seed= 1 active_frac=1.000  dlg:psnr=  -3.9dB  idlg:psnr= -31.8dB  inverting_gradients:psnr=   0.5dB
+[privacy] alpha=  0.5 seed= 2 active_frac=1.000  dlg:psnr= -20.6dB  idlg:psnr= -48.4dB  inverting_gradients:psnr= -13.4dB
+[privacy] alpha=  0.5 seed= 3 active_frac=1.000  dlg:psnr= -20.2dB  idlg:psnr= -33.8dB  inverting_gradients:psnr=  -2.9dB
+[privacy] alpha=  0.5 seed= 4 active_frac=1.000  dlg:psnr= -14.1dB  idlg:psnr=-144.2dB  inverting_gradients:psnr=   2.7dB
+[privacy] alpha=  0.5 seed= 5 active_frac=1.000  dlg:psnr=  -7.9dB  idlg:psnr= -43.9dB  inverting_gradients:psnr=  -3.3dB
+[privacy] alpha=  0.5 seed= 6 active_frac=1.000  dlg:psnr= -18.2dB  idlg:psnr= -26.4dB  inverting_gradients:psnr=  -8.0dB
+[privacy] alpha=  0.5 seed= 7 active_frac=1.000  dlg:psnr=  -9.0dB  idlg:psnr= -28.1dB  inverting_gradients:psnr=   2.8dB
+[privacy] alpha=  0.5 seed= 8 active_frac=1.000  dlg:psnr=-189.1dB  idlg:psnr= -29.2dB  inverting_gradients:psnr=  -1.3dB
+[privacy] alpha=  0.5 seed= 9 active_frac=1.000  dlg:psnr=  -8.3dB  idlg:psnr=-155.7dB  inverting_gradients:psnr=  -1.6dB
+[privacy] alpha=  0.5 seed=10 active_frac=1.000  dlg:psnr=-174.3dB  idlg:psnr= -44.4dB  inverting_gradients:psnr=  -1.7dB
+[privacy] alpha=  0.5 seed=11 active_frac=1.000  dlg:psnr= -10.3dB  idlg:psnr=-187.4dB  inverting_gradients:psnr=  -5.1dB
+[privacy] alpha=  0.5 seed=12 active_frac=1.000  dlg:psnr=  -8.4dB  idlg:psnr= -21.5dB  inverting_gradients:psnr=  -2.5dB
+[privacy] alpha=  0.5 seed=13 active_frac=1.000  dlg:psnr= -23.4dB  idlg:psnr= -53.0dB  inverting_gradients:psnr=  -9.4dB
+[privacy] alpha=  0.5 seed=14 active_frac=1.000  dlg:psnr= -20.9dB  idlg:psnr= -42.1dB  inverting_gradients:psnr=   1.1dB
